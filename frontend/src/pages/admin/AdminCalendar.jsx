@@ -17,7 +17,7 @@ const localizer = dateFnsLocalizer({
 });
 
 const STATUS_COLOR = {
-  approved: '#2F5D50',
+  approved: '#1B3A6C',
   pending: '#C98A2C',
 };
 
