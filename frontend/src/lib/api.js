@@ -1,0 +1,69 @@
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+function authHeaders() {
+  const token = localStorage.getItem('admin_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      detail = body.detail || detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(detail);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+export const api = {
+  // Rooms
+  listRooms: () => request('/api/rooms'),
+  suggestRooms: (payload) =>
+    request('/api/rooms/suggest', { method: 'POST', body: JSON.stringify(payload) }),
+  createRoom: (payload) => request('/api/rooms', { method: 'POST', body: JSON.stringify(payload) }),
+  updateRoom: (id, payload) =>
+    request(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE' }),
+
+  // Bookings
+  createBooking: (payload) =>
+    request('/api/bookings', { method: 'POST', body: JSON.stringify(payload) }),
+  listBookings: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/bookings${qs ? `?${qs}` : ''}`);
+  },
+  cancelBooking: (id, email) =>
+    request(`/api/bookings/${id}/cancel?email=${encodeURIComponent(email)}`, { method: 'POST' }),
+
+  // Admin
+  adminRegister: (payload) =>
+    request('/api/admin/register', { method: 'POST', body: JSON.stringify(payload) }),
+  adminLogin: (payload) =>
+    request('/api/admin/login', { method: 'POST', body: JSON.stringify(payload) }),
+  adminMe: () => request('/api/admin/me'),
+  adminApprovals: () => request('/api/admin/approvals'),
+  adminApprove: (id, admin_note) =>
+    request(`/api/admin/bookings/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note }),
+    }),
+  adminReject: (id, admin_note) =>
+    request(`/api/admin/bookings/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_note }),
+    }),
+  adminDashboard: () => request('/api/admin/dashboard'),
+};

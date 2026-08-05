@@ -1,0 +1,104 @@
+from datetime import datetime, timedelta
+
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from mongomock_motor import AsyncMongoMockClient
+
+
+@pytest_asyncio.fixture
+async def app_state(monkeypatch):
+    """
+    Points every router at the same in-memory mongomock database instead of
+    a real MongoDB, and resets rate-limit state between tests so limits set
+    for production traffic don't bleed across test cases.
+    """
+    from app import auth as auth_module
+    from app import database as db_module
+    from app.config import settings
+    from app.rate_limit import limiter
+    from app.routers import admin as admin_router
+    from app.routers import bookings as bookings_router
+    from app.routers import rooms as rooms_router
+
+    mock_db = AsyncMongoMockClient()["church_booking_test"]
+    rooms_col = mock_db["rooms"]
+    bookings_col = mock_db["bookings"]
+    admins_col = mock_db["admins"]
+
+    for module in (db_module, rooms_router, bookings_router, admin_router, auth_module):
+        if hasattr(module, "rooms_collection"):
+            monkeypatch.setattr(module, "rooms_collection", rooms_col)
+        if hasattr(module, "bookings_collection"):
+            monkeypatch.setattr(module, "bookings_collection", bookings_col)
+        if hasattr(module, "admins_collection"):
+            monkeypatch.setattr(module, "admins_collection", admins_col)
+
+    monkeypatch.setattr(settings, "admin_setup_secret", "test-setup-secret")
+    monkeypatch.setattr(settings, "auto_approve_window_days", 14)
+
+    limiter.reset()
+
+    return {"rooms": rooms_col, "bookings": bookings_col, "admins": admins_col}
+
+
+@pytest_asyncio.fixture
+async def client(app_state):
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def rooms_col(app_state):
+    return app_state["rooms"]
+
+
+@pytest_asyncio.fixture
+async def bookings_col(app_state):
+    return app_state["bookings"]
+
+
+@pytest_asyncio.fixture
+async def admins_col(app_state):
+    return app_state["admins"]
+
+
+async def make_room(rooms_col, **overrides):
+    doc = {
+        "name": "Room A",
+        "type": "classroom",
+        "capacity": 20,
+        "location": None,
+        "setup_notes": "Chairs stacked, tables wiped",
+        "photo_url": None,
+        "active": True,
+    }
+    doc.update(overrides)
+    result = await rooms_col.insert_one(doc)
+    return str(result.inserted_id)
+
+
+def booking_payload(room_id, start_offset_days=5, duration_hours=2, **overrides):
+    """
+    start_offset_days is relative to "now" (the real system clock), matching
+    how create_booking computes the auto-approval window off datetime.utcnow().
+    """
+    start = datetime.utcnow() + timedelta(days=start_offset_days)
+    end = start + timedelta(hours=duration_hours)
+    payload = {
+        "room_id": room_id,
+        "requester_name": "Jane Doe",
+        "congregation": "Youth Group",
+        "email": "jane@example.com",
+        "phone": "+10000000000",
+        "headcount": 10,
+        "start_time": start.isoformat(),
+        "end_time": end.isoformat(),
+        "purpose": "Bible study",
+        "is_private_event": False,
+    }
+    payload.update(overrides)
+    return payload
