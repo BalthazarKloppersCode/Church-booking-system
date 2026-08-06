@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: church-booking-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: church_booking
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRE_HOURS
+        value: "12"
+      - key: ADMIN_SETUP_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AUTO_APPROVE_WINDOW_DAYS
+        value: "14"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: bookings@yourchurch.org
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: ADMIN_NOTIFY_EMAIL
+        sync: false
+      - key: ADMIN_NOTIFY_WHATSAPP
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
