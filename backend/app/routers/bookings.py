@@ -77,6 +77,7 @@ async def create_booking(request: Request, payload: BookingCreate):
 async def list_bookings(
     email: Optional[str] = None,
     room_id: Optional[str] = None,
+    congregation: Optional[str] = None,
     status: Optional[BookingStatus] = None,
     start_after: Optional[datetime] = None,
     start_before: Optional[datetime] = None,
@@ -95,6 +96,8 @@ async def list_bookings(
         query["email"] = email
     if room_id:
         query["room_id"] = room_id
+    if congregation:
+        query["congregation"] = congregation
     if status:
         query["status"] = status.value
     if start_after or start_before:

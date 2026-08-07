@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 export default function HomePage() {
   return (
     <div className="container" style={{ maxWidth: 620, paddingTop: 100 }}>
-      <div className="eyebrow">Campus room booking</div>
+      <div className="eyebrow">Pinehurst Campus</div>
       <h1 style={{ fontSize: 40, marginBottom: 14 }}>Find a room, book a room.</h1>
       <p style={{ fontSize: 16, marginBottom: 36 }}>
-        Book classrooms, training halls, or the main hall for your congregation, group, or
-        event. Bookings up to two weeks out are confirmed instantly — anything further ahead,
-        or a private event, goes to the admin office for a quick approval.
+        Book classrooms, the training hall, the main hall, the coffee shop, or the lounge for
+        your congregation, group, or event. Bookings up to two weeks out are confirmed
+        instantly — anything further ahead, or a private event, goes to the admin office for
+        a quick approval.
       </p>
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>

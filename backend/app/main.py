@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import settings
 from app.database import ensure_indexes
 from app.rate_limit import limiter
-from app.routers import rooms, bookings, admin
+from app.routers import rooms, bookings, admin, congregations
 
 app = FastAPI(title="Church Booking System")
 
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(rooms.router)
 app.include_router(bookings.router)
 app.include_router(admin.router)
+app.include_router(congregations.router)
 
 
 @app.on_event("startup")

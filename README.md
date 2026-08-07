@@ -1,4 +1,4 @@
-# Church Campus Room Booking System
+# Pinehurst Campus Room Booking System
 
 A booking portal for classrooms, training halls, and the main hall, plus an
 admin portal for approvals, a room grid ("top view"), and a calendar.

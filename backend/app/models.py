@@ -24,6 +24,8 @@ class RoomType(str, Enum):
     classroom = "classroom"
     training_hall = "training_hall"
     main_hall = "main_hall"
+    coffee_shop = "coffee_shop"
+    lounge = "lounge"
 
 
 class BookingStatus(str, Enum):
@@ -63,6 +65,26 @@ class RoomUpdate(BaseModel):
 
 
 class Room(RoomBase):
+    id: str
+
+
+# ---------- Congregations ----------
+
+class CongregationBase(BaseModel):
+    name: str
+    active: bool = True
+
+
+class CongregationCreate(CongregationBase):
+    pass
+
+
+class CongregationUpdate(BaseModel):
+    name: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class Congregation(CongregationBase):
     id: str
 
 

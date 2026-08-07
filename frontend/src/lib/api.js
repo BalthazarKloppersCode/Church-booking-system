@@ -38,6 +38,15 @@ export const api = {
     request(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deactivateRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE' }),
 
+  // Congregations
+  listCongregations: (activeOnly = true) =>
+    request(`/api/congregations?active_only=${activeOnly}`),
+  createCongregation: (payload) =>
+    request('/api/congregations', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCongregation: (id, payload) =>
+    request(`/api/congregations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateCongregation: (id) => request(`/api/congregations/${id}`, { method: 'DELETE' }),
+
   // Bookings
   createBooking: (payload) =>
     request('/api/bookings', { method: 'POST', body: JSON.stringify(payload) }),

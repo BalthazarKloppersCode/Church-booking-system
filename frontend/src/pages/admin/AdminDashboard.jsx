@@ -26,6 +26,10 @@ export default function AdminDashboard() {
         <StatCard label="Active rooms" value={stats.active_rooms} accent="var(--success)" />
       </div>
 
+      <Link to="/admin/congregations/dashboard" style={{ display: 'inline-block', marginBottom: 28, fontSize: 14 }}>
+        View bookings by congregation →
+      </Link>
+
       <h2 style={{ fontSize: 18, marginBottom: 14 }}>Next confirmed bookings</h2>
       {stats.next_bookings.length === 0 && <p>Nothing confirmed yet.</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

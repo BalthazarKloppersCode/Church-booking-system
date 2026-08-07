@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { to: '/admin/grid', label: 'Room grid' },
   { to: '/admin/calendar', label: 'Calendar' },
   { to: '/admin/rooms', label: 'Manage rooms' },
+  { to: '/admin/congregations', label: 'Manage congregations' },
+  { to: '/admin/congregations/dashboard', label: 'By congregation' },
 ];
 
 export default function AdminLayout() {
@@ -29,7 +31,7 @@ export default function AdminLayout() {
         }}
       >
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 30 }}>
-          Campus Admin
+          Pinehurst Admin
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
           {NAV_ITEMS.map((item) => (

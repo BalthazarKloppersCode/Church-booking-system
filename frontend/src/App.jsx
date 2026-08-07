@@ -9,6 +9,8 @@ import AdminApprovals from './pages/admin/AdminApprovals';
 import AdminCalendar from './pages/admin/AdminCalendar';
 import AdminRoomGrid from './pages/admin/AdminRoomGrid';
 import AdminRooms from './pages/admin/AdminRooms';
+import AdminCongregations from './pages/admin/AdminCongregations';
+import AdminCongregationDashboard from './pages/admin/AdminCongregationDashboard';
 
 export default function App() {
   return (
@@ -25,6 +27,8 @@ export default function App() {
           <Route path="calendar" element={<AdminCalendar />} />
           <Route path="grid" element={<AdminRoomGrid />} />
           <Route path="rooms" element={<AdminRooms />} />
+          <Route path="congregations" element={<AdminCongregations />} />
+          <Route path="congregations/dashboard" element={<AdminCongregationDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

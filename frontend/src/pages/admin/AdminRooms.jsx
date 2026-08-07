@@ -82,6 +82,8 @@ export default function AdminRooms() {
               <option value="classroom">Classroom</option>
               <option value="training_hall">Training hall</option>
               <option value="main_hall">Main hall</option>
+              <option value="coffee_shop">Coffee shop</option>
+              <option value="lounge">Lounge</option>
             </select>
           </div>
           <div className="field">

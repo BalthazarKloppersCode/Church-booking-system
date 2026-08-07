@@ -19,27 +19,37 @@ async def app_state(monkeypatch):
     from app.rate_limit import limiter
     from app.routers import admin as admin_router
     from app.routers import bookings as bookings_router
+    from app.routers import congregations as congregations_router
     from app.routers import rooms as rooms_router
 
     mock_db = AsyncMongoMockClient()["church_booking_test"]
     rooms_col = mock_db["rooms"]
     bookings_col = mock_db["bookings"]
     admins_col = mock_db["admins"]
+    congregations_col = mock_db["congregations"]
 
-    for module in (db_module, rooms_router, bookings_router, admin_router, auth_module):
+    modules = (db_module, rooms_router, bookings_router, admin_router, auth_module, congregations_router)
+    for module in modules:
         if hasattr(module, "rooms_collection"):
             monkeypatch.setattr(module, "rooms_collection", rooms_col)
         if hasattr(module, "bookings_collection"):
             monkeypatch.setattr(module, "bookings_collection", bookings_col)
         if hasattr(module, "admins_collection"):
             monkeypatch.setattr(module, "admins_collection", admins_col)
+        if hasattr(module, "congregations_collection"):
+            monkeypatch.setattr(module, "congregations_collection", congregations_col)
 
     monkeypatch.setattr(settings, "admin_setup_secret", "test-setup-secret")
     monkeypatch.setattr(settings, "auto_approve_window_days", 14)
 
     limiter.reset()
 
-    return {"rooms": rooms_col, "bookings": bookings_col, "admins": admins_col}
+    return {
+        "rooms": rooms_col,
+        "bookings": bookings_col,
+        "admins": admins_col,
+        "congregations": congregations_col,
+    }
 
 
 @pytest_asyncio.fixture
@@ -64,6 +74,11 @@ async def bookings_col(app_state):
 @pytest_asyncio.fixture
 async def admins_col(app_state):
     return app_state["admins"]
+
+
+@pytest_asyncio.fixture
+async def congregations_col(app_state):
+    return app_state["congregations"]
 
 
 async def make_room(rooms_col, **overrides):

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 
@@ -7,6 +7,8 @@ const ROOM_TYPES = [
   { value: 'classroom', label: 'Classroom' },
   { value: 'training_hall', label: 'Training hall' },
   { value: 'main_hall', label: 'Main hall' },
+  { value: 'coffee_shop', label: 'Coffee shop' },
+  { value: 'lounge', label: 'Lounge' },
 ];
 
 function toLocalISOString(dateStr, timeStr) {
@@ -40,6 +42,45 @@ export default function BookPage() {
   });
 
   const [result, setResult] = useState(null);
+
+  const [congregations, setCongregations] = useState([]);
+  const [congregationsLoaded, setCongregationsLoaded] = useState(false);
+
+  const [wantsLounge, setWantsLounge] = useState(false);
+  const [loungeChecking, setLoungeChecking] = useState(false);
+  const [loungeAvailable, setLoungeAvailable] = useState(null);
+  const [loungeRoom, setLoungeRoom] = useState(null);
+
+  useEffect(() => {
+    api
+      .listCongregations()
+      .then(setCongregations)
+      .catch(() => {})
+      .finally(() => setCongregationsLoaded(true));
+  }, []);
+
+  async function handleToggleLounge(checked) {
+    setWantsLounge(checked);
+    if (!checked) {
+      setLoungeAvailable(null);
+      setLoungeRoom(null);
+      return;
+    }
+    setLoungeChecking(true);
+    try {
+      const start_time = toLocalISOString(search.date, search.startTime);
+      const end_time = toLocalISOString(search.date, search.endTime);
+      const results = await api.suggestRooms({ headcount: 1, start_time, end_time, type: 'lounge' });
+      const lounge = results[0];
+      setLoungeRoom(lounge ? lounge.room : null);
+      setLoungeAvailable(lounge ? lounge.available : false);
+    } catch {
+      setLoungeAvailable(false);
+      setLoungeRoom(null);
+    } finally {
+      setLoungeChecking(false);
+    }
+  }
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -83,7 +124,26 @@ export default function BookPage() {
         end_time,
         ...form,
       });
-      setResult(booking);
+
+      let loungeBooking = null;
+      let loungeError = null;
+      if (wantsLounge && loungeAvailable && loungeRoom) {
+        try {
+          loungeBooking = await api.createBooking({
+            room_id: loungeRoom.id,
+            // The Lounge is overflow reception space, not the main event —
+            // it doesn't need to fit the whole headcount, just its own capacity.
+            headcount: Math.min(Number(search.headcount), loungeRoom.capacity),
+            start_time,
+            end_time,
+            ...form,
+          });
+        } catch (err) {
+          loungeError = err.message;
+        }
+      }
+
+      setResult({ ...booking, loungeBooking, loungeError });
       setStep(4);
     } catch (err) {
       setError(err.message);
@@ -222,11 +282,22 @@ export default function BookPage() {
           </div>
           <div className="field">
             <label>Congregation / group / department</label>
-            <input
-              required
-              value={form.congregation}
-              onChange={(e) => setForm({ ...form, congregation: e.target.value })}
-            />
+            {congregationsLoaded && congregations.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                No congregations have been set up yet — ask the admin office to add one before booking.
+              </p>
+            ) : (
+              <select
+                required
+                value={form.congregation}
+                onChange={(e) => setForm({ ...form, congregation: e.target.value })}
+              >
+                <option value="" disabled>Select your congregation / group</option>
+                {congregations.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="field-row">
             <div className="field">
@@ -257,6 +328,34 @@ export default function BookPage() {
               onChange={(e) => setForm({ ...form, purpose: e.target.value })}
             />
           </div>
+
+          {selectedRoom.room.type === 'training_hall' && (
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 'auto' }}
+                  checked={wantsLounge}
+                  onChange={(e) => handleToggleLounge(e.target.checked)}
+                />
+                Also book the Lounge as a separate reception area for this event
+              </label>
+              {wantsLounge && loungeChecking && (
+                <p style={{ fontSize: 13 }}>Checking Lounge availability…</p>
+              )}
+              {wantsLounge && !loungeChecking && loungeAvailable === false && (
+                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                  The Lounge is already booked for this time slot — it won't be included with this booking.
+                </p>
+              )}
+              {wantsLounge && !loungeChecking && loungeAvailable === true && (
+                <p style={{ fontSize: 13, color: 'var(--success)' }}>
+                  The Lounge is free for this time — it will be booked alongside {selectedRoom.room.name}.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="field">
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input
@@ -316,6 +415,16 @@ export default function BookPage() {
                 {result.is_private_event ? ' — private events always need a quick approval.' : ' — bookings more than two weeks out need a quick approval.'}
               </p>
             </>
+          )}
+          {result.loungeBooking && (
+            <p style={{ marginTop: 10, fontSize: 14 }}>
+              The Lounge has also been {result.loungeBooking.status === 'approved' ? 'confirmed' : 'requested'} as reception space for the same time.
+            </p>
+          )}
+          {result.loungeError && (
+            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--danger)' }}>
+              Couldn't book the Lounge for reception ({result.loungeError}) — please contact the admin office to arrange it separately.
+            </p>
           )}
           <Link to="/" className="btn btn-secondary" style={{ marginTop: 10 }}>Back home</Link>
         </div>
