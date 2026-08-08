@@ -6,6 +6,7 @@ const EMPTY_ROOM = {
   type: 'classroom',
   capacity: '',
   location: '',
+  description: '',
   setup_notes: '',
 };
 
@@ -30,6 +31,7 @@ export default function AdminRooms() {
       type: room.type,
       capacity: room.capacity,
       location: room.location || '',
+      description: room.description || '',
       setup_notes: room.setup_notes || '',
     });
   }
@@ -84,6 +86,7 @@ export default function AdminRooms() {
               <option value="main_hall">Main hall</option>
               <option value="coffee_shop">Coffee shop</option>
               <option value="lounge">Lounge</option>
+              <option value="leap">Leap</option>
             </select>
           </div>
           <div className="field">
@@ -99,6 +102,14 @@ export default function AdminRooms() {
           <div className="field">
             <label>Location (optional)</label>
             <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          </div>
+          <div className="field">
+            <label>What's in the room (furniture, equipment, what the booker should bring)</label>
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
           </div>
           <div className="field">
             <label>Setup instructions (what it should look like when done)</label>

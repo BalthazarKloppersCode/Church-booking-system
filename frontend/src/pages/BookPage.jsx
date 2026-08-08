@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import BuildingMap from '../components/BuildingMap';
 
 const ROOM_TYPES = [
   { value: '', label: 'Any room type' },
@@ -9,6 +10,7 @@ const ROOM_TYPES = [
   { value: 'main_hall', label: 'Main hall' },
   { value: 'coffee_shop', label: 'Coffee shop' },
   { value: 'lounge', label: 'Lounge' },
+  { value: 'leap', label: 'Leap' },
 ];
 
 function toLocalISOString(dateStr, timeStr) {
@@ -33,6 +35,9 @@ export default function BookPage() {
   });
   const [suggestions, setSuggestions] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
+  const [mapSuggestions, setMapSuggestions] = useState(null);
+  const [mapLoading, setMapLoading] = useState(false);
 
   const [form, setForm] = useState({
     requester_name: '',
@@ -110,11 +115,31 @@ export default function BookPage() {
       };
       const rooms = await api.suggestRooms(payload);
       setSuggestions(rooms);
+      setMapSuggestions(null);
+      setViewMode('list');
       setStep(2);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleShowMap() {
+    setViewMode('map');
+    if (mapSuggestions) return;
+    setMapLoading(true);
+    try {
+      const start_time = toLocalISOString(search.date, search.startTime);
+      const end_time = toLocalISOString(search.date, search.endTime);
+      // Unfiltered by room type — the map should always show every room,
+      // regardless of the type filter used for the list search.
+      const rooms = await api.suggestRooms({ headcount: Number(search.headcount), start_time, end_time });
+      setMapSuggestions(rooms);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMapLoading(false);
     }
   }
 
@@ -293,9 +318,38 @@ export default function BookPage() {
 
       {step === 2 && (
         <div>
-          <p style={{ marginBottom: 18 }}>
-            Rooms that fit {search.headcount} people on {search.date} from {search.startTime}–{search.endTime}:
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 12 }}>
+            <p style={{ margin: 0 }}>
+              Rooms that fit {search.headcount} people on {search.date} from {search.startTime}–{search.endTime}:
+            </p>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                type="button"
+                className={viewMode === 'list' ? 'btn btn-primary' : 'btn btn-secondary'}
+                style={{ padding: '6px 12px', fontSize: 12 }}
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'map' ? 'btn btn-primary' : 'btn btn-secondary'}
+                style={{ padding: '6px 12px', fontSize: 12 }}
+                onClick={() => handleShowMap()}
+              >
+                Map
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'map' ? (
+            mapLoading ? (
+              <p>Loading map…</p>
+            ) : (
+              <BuildingMap suggestions={mapSuggestions || []} onSelect={pickRoom} />
+            )
+          ) : (
+            <>
           {suggestions.length === 0 && (
             <p>No rooms match that size. Try adjusting the headcount or room type.</p>
           )}
@@ -308,6 +362,9 @@ export default function BookPage() {
                     Capacity {s.room.capacity} · {s.room.type.replace('_', ' ')}
                     {s.room.location ? ` · ${s.room.location}` : ''}
                   </p>
+                  {s.room.description && (
+                    <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{s.room.description}</p>
+                  )}
                   {!s.available && (
                     <span className="badge badge-rejected">Already booked at this time</span>
                   )}
@@ -328,6 +385,8 @@ export default function BookPage() {
               </div>
             ))}
           </div>
+            </>
+          )}
           <button className="btn btn-ghost" style={{ marginTop: 20 }} onClick={() => setStep(1)}>
             ← Change search
           </button>

@@ -26,6 +26,7 @@ class RoomType(str, Enum):
     main_hall = "main_hall"
     coffee_shop = "coffee_shop"
     lounge = "lounge"
+    leap = "leap"
 
 
 class BookingStatus(str, Enum):
@@ -42,6 +43,10 @@ class RoomBase(BaseModel):
     type: RoomType
     capacity: int
     location: Optional[str] = None
+    description: Optional[str] = Field(
+        default=None,
+        description="What's in the room and what the booker needs to bring, e.g. 'Chairs, sound system, projector. Bring your own markers.'",
+    )
     setup_notes: Optional[str] = Field(
         default=None,
         description="What this room should look like when booking is done, e.g. 'Chairs stacked against back wall, tables wiped, projector off'",
@@ -59,6 +64,7 @@ class RoomUpdate(BaseModel):
     type: Optional[RoomType] = None
     capacity: Optional[int] = None
     location: Optional[str] = None
+    description: Optional[str] = None
     setup_notes: Optional[str] = None
     photo_url: Optional[str] = None
     active: Optional[bool] = None

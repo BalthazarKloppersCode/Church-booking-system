@@ -36,6 +36,12 @@ ROOMS = [
     {"name": "Lounge", "type": "lounge", "capacity": 30, "location": None,
      "setup_notes": "Furniture returned to normal layout, cups/dishes cleared.",
      "photo_url": None, "active": True},
+    {"name": "Leap 1", "type": "leap", "capacity": 30, "location": None,
+     "setup_notes": "Chairs and tables back in rows, toys packed away, whiteboard wiped.",
+     "photo_url": None, "active": True},
+    {"name": "Leap 2", "type": "leap", "capacity": 30, "location": None,
+     "setup_notes": "Chairs and tables back in rows, toys packed away, whiteboard wiped.",
+     "photo_url": None, "active": True},
 ]
 
 
