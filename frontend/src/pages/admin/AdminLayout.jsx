@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { to: '/admin/grid', label: 'Room grid' },
   { to: '/admin/calendar', label: 'Calendar' },
   { to: '/admin/rooms', label: 'Manage rooms' },
-  { to: '/admin/congregations', label: 'Manage congregations' },
+  { to: '/admin/lists', label: 'Manage lists' },
   { to: '/admin/congregations/dashboard', label: 'By congregation' },
 ];
 

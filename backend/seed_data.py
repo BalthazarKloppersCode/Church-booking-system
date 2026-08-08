@@ -6,7 +6,7 @@ Edit the ROOMS list below to match your actual campus before (or after)
 running it — you can also edit rooms later from the admin portal.
 """
 import asyncio
-from app.database import rooms_collection
+from app.database import rooms_collection, booking_purposes_collection
 
 ROOMS = [
     {"name": "Kids Classroom 1", "type": "classroom", "capacity": 30, "location": None,
@@ -39,12 +39,35 @@ ROOMS = [
 ]
 
 
+BOOKING_PURPOSES = [
+    "Sunday service",
+    "Sunday school",
+    "Bible study / cell group",
+    "Youth ministry",
+    "Kids ministry",
+    "Worship practice / rehearsal",
+    "Training / workshop",
+    "Committee / admin meeting",
+    "Outreach / community event",
+    "Wedding",
+    "Funeral / memorial",
+    "Conference / seminar",
+    "Other",
+]
+
+
 async def seed():
     for room in ROOMS:
         await rooms_collection.update_one(
             {"name": room["name"]}, {"$set": room}, upsert=True
         )
     print(f"Seeded {len(ROOMS)} placeholder rooms.")
+
+    for name in BOOKING_PURPOSES:
+        await booking_purposes_collection.update_one(
+            {"name": name}, {"$set": {"name": name, "active": True}}, upsert=True
+        )
+    print(f"Seeded {len(BOOKING_PURPOSES)} booking purposes.")
 
 
 if __name__ == "__main__":

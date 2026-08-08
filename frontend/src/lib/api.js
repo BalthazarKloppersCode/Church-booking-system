@@ -47,6 +47,15 @@ export const api = {
     request(`/api/congregations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deactivateCongregation: (id) => request(`/api/congregations/${id}`, { method: 'DELETE' }),
 
+  // Booking purposes
+  listBookingPurposes: (activeOnly = true) =>
+    request(`/api/booking-purposes?active_only=${activeOnly}`),
+  createBookingPurpose: (payload) =>
+    request('/api/booking-purposes', { method: 'POST', body: JSON.stringify(payload) }),
+  updateBookingPurpose: (id, payload) =>
+    request(`/api/booking-purposes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateBookingPurpose: (id) => request(`/api/booking-purposes/${id}`, { method: 'DELETE' }),
+
   // Bookings
   createBooking: (payload) =>
     request('/api/bookings', { method: 'POST', body: JSON.stringify(payload) }),
@@ -75,4 +84,5 @@ export const api = {
       body: JSON.stringify({ admin_note }),
     }),
   adminDashboard: () => request('/api/admin/dashboard'),
+  adminAnalytics: (days) => request(`/api/admin/analytics?days=${days}`),
 };

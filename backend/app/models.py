@@ -88,6 +88,26 @@ class Congregation(CongregationBase):
     id: str
 
 
+# ---------- Booking purposes ----------
+
+class BookingPurposeBase(BaseModel):
+    name: str
+    active: bool = True
+
+
+class BookingPurposeCreate(BookingPurposeBase):
+    pass
+
+
+class BookingPurposeUpdate(BaseModel):
+    name: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class BookingPurpose(BookingPurposeBase):
+    id: str
+
+
 # ---------- Bookings ----------
 
 class BookingCreate(BaseModel):
@@ -100,6 +120,10 @@ class BookingCreate(BaseModel):
     start_time: datetime
     end_time: datetime
     purpose: str
+    purpose_other: Optional[str] = Field(
+        default=None,
+        description="Free-text detail when purpose is 'Other'",
+    )
     is_private_event: bool = Field(
         default=False,
         description="Weddings, funerals, and other private (non-congregation) events always require admin approval",
@@ -128,6 +152,7 @@ class Booking(BaseModel):
     start_time: datetime
     end_time: datetime
     purpose: str
+    purpose_other: Optional[str] = None
     is_private_event: bool
     notes: Optional[str] = None
     status: BookingStatus

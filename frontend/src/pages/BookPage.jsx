@@ -16,6 +16,8 @@ function toLocalISOString(dateStr, timeStr) {
   return new Date(`${dateStr}T${timeStr}:00`).toISOString();
 }
 
+const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Funeral / memorial'];
+
 export default function BookPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,7 @@ export default function BookPage() {
     email: '',
     phone: '',
     purpose: '',
+    purpose_other: '',
     is_private_event: false,
     notes: '',
   });
@@ -45,6 +48,10 @@ export default function BookPage() {
 
   const [congregations, setCongregations] = useState([]);
   const [congregationsLoaded, setCongregationsLoaded] = useState(false);
+
+  const [purposes, setPurposes] = useState([]);
+  const [purposesLoaded, setPurposesLoaded] = useState(false);
+  const forcedPrivate = FORCED_PRIVATE_PURPOSES.includes(form.purpose);
 
   const [wantsLounge, setWantsLounge] = useState(false);
   const [loungeChecking, setLoungeChecking] = useState(false);
@@ -57,6 +64,11 @@ export default function BookPage() {
       .then(setCongregations)
       .catch(() => {})
       .finally(() => setCongregationsLoaded(true));
+    api
+      .listBookingPurposes()
+      .then(setPurposes)
+      .catch(() => {})
+      .finally(() => setPurposesLoaded(true));
   }, []);
 
   async function handleToggleLounge(checked) {
@@ -123,6 +135,7 @@ export default function BookPage() {
         start_time,
         end_time,
         ...form,
+        is_private_event: forcedPrivate || form.is_private_event,
       });
 
       let loungeBooking = null;
@@ -137,6 +150,7 @@ export default function BookPage() {
             start_time,
             end_time,
             ...form,
+            is_private_event: forcedPrivate || form.is_private_event,
           });
         } catch (err) {
           loungeError = err.message;
@@ -321,12 +335,37 @@ export default function BookPage() {
           </div>
           <div className="field">
             <label>What's this booking for?</label>
-            <textarea
-              rows={3}
-              required
-              value={form.purpose}
-              onChange={(e) => setForm({ ...form, purpose: e.target.value })}
-            />
+            {purposesLoaded && purposes.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                No booking purposes have been set up yet — ask the admin office to add one before booking.
+              </p>
+            ) : (
+              <select
+                required
+                value={form.purpose}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    purpose: e.target.value,
+                    purpose_other: e.target.value === 'Other' ? form.purpose_other : '',
+                  })
+                }
+              >
+                <option value="" disabled>Select a purpose</option>
+                {purposes.map((p) => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            {form.purpose === 'Other' && (
+              <input
+                required
+                placeholder="Briefly describe the purpose"
+                style={{ marginTop: 8 }}
+                value={form.purpose_other}
+                onChange={(e) => setForm({ ...form, purpose_other: e.target.value })}
+              />
+            )}
           </div>
 
           {selectedRoom.room.type === 'training_hall' && (
@@ -357,15 +396,21 @@ export default function BookPage() {
           )}
 
           <div className="field">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: forcedPrivate ? 'default' : 'pointer' }}>
               <input
                 type="checkbox"
                 style={{ width: 'auto' }}
-                checked={form.is_private_event}
+                checked={forcedPrivate || form.is_private_event}
+                disabled={forcedPrivate}
                 onChange={(e) => setForm({ ...form, is_private_event: e.target.checked })}
               />
               This is a private event (wedding, funeral, or similar) — not a regular congregation activity
             </label>
+            {forcedPrivate && (
+              <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+                Weddings and funerals always require admin approval, so this is ticked automatically.
+              </p>
+            )}
           </div>
           <div className="field">
             <label>Anything else the admin office should know? (optional)</label>
@@ -376,7 +421,7 @@ export default function BookPage() {
             />
           </div>
 
-          {(form.is_private_event) && (
+          {(forcedPrivate || form.is_private_event) && (
             <div className="card" style={{ background: 'var(--amber-tint)', border: 'none', marginBottom: 18 }}>
               <p style={{ color: 'var(--amber)', margin: 0, fontSize: 13 }}>
                 Private events always need admin approval before they're confirmed.

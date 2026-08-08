@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, timedelta
 from typing import List
 
@@ -164,4 +165,63 @@ async def dashboard_stats(admin=Depends(get_current_admin)):
         "bookings_this_week": upcoming_week_count,
         "active_rooms": total_rooms,
         "next_bookings": upcoming,
+    }
+
+
+@router.get("/analytics")
+async def analytics(days: int = 30, admin=Depends(get_current_admin)):
+    """
+    Powers the dashboard charts. `days` is the shared adjustable window
+    (7/30/90) for the by-congregation/by-purpose/by-room/weekly breakdowns.
+    avg_approval_hours always looks at a fixed trailing 30 days, independent
+    of `days`, since it's a fixed operational metric rather than a chart.
+
+    All breakdowns are grouped by created_at (when the request was made, not
+    the event's start_time) and exclude cancelled/rejected bookings, so they
+    reflect real booking demand in the period.
+    """
+    now = datetime.utcnow()
+    window_start = now - timedelta(days=days)
+    approval_window_start = now - timedelta(days=30)
+
+    approval_hours: List[float] = []
+    async for b in bookings_collection.find(
+        {"status": BookingStatus.approved.value, "created_at": {"$gte": approval_window_start}}
+    ):
+        if b["updated_at"] > b["created_at"]:
+            approval_hours.append((b["updated_at"] - b["created_at"]).total_seconds() / 3600)
+    avg_approval_hours = round(sum(approval_hours) / len(approval_hours), 1) if approval_hours else None
+
+    by_congregation: Counter = Counter()
+    by_purpose: Counter = Counter()
+    by_room: Counter = Counter()
+    weekly: Counter = Counter()
+
+    async for b in bookings_collection.find(
+        {
+            "created_at": {"$gte": window_start},
+            "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
+        }
+    ):
+        by_congregation[b["congregation"]] += 1
+        by_purpose[b.get("purpose") or "Other"] += 1
+        by_room[b["room_name"]] += 1
+        week_start = b["created_at"] - timedelta(days=b["created_at"].weekday())
+        weekly[week_start.strftime("%Y-%m-%d")] += 1
+
+    def _ranked(counter: Counter) -> List[dict]:
+        return [
+            {"label": label, "count": count}
+            for label, count in sorted(counter.items(), key=lambda item: -item[1])
+        ]
+
+    return {
+        "avg_approval_hours": avg_approval_hours,
+        "by_congregation": _ranked(by_congregation),
+        "by_purpose": _ranked(by_purpose),
+        "by_room": _ranked(by_room),
+        "weekly": sorted(
+            [{"week_start": k, "count": v} for k, v in weekly.items()],
+            key=lambda item: item["week_start"],
+        ),
     }
