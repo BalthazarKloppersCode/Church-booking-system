@@ -140,6 +140,46 @@ class BookingAdminAction(BaseModel):
     admin_note: Optional[str] = None
 
 
+class RecurrenceFrequency(str, Enum):
+    weekly = "weekly"
+    biweekly = "biweekly"
+    monthly = "monthly"
+
+
+class RecurrenceRule(BaseModel):
+    frequency: RecurrenceFrequency
+    until: datetime
+
+    @field_validator("until")
+    @classmethod
+    def _normalize_until(cls, v: datetime) -> datetime:
+        return _to_naive_utc(v)
+
+
+class AdminBookingCreate(BaseModel):
+    room_id: str
+    requester_name: str
+    congregation: str
+    email: EmailStr
+    phone: str
+    headcount: int
+    start_time: datetime
+    end_time: datetime
+    purpose: str
+    purpose_other: Optional[str] = None
+    is_private_event: bool = False
+    notes: Optional[str] = None
+    recurrence: Optional[RecurrenceRule] = Field(
+        default=None,
+        description="If set, one booking is created per occurrence, sharing a series_id",
+    )
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _normalize_start_end(cls, v: datetime) -> datetime:
+        return _to_naive_utc(v)
+
+
 class Booking(BaseModel):
     id: str
     room_id: str
@@ -157,6 +197,7 @@ class Booking(BaseModel):
     notes: Optional[str] = None
     status: BookingStatus
     admin_note: Optional[str] = None
+    series_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

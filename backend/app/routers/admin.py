@@ -1,6 +1,8 @@
+import calendar
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
+from uuid import uuid4
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,19 +17,58 @@ from app.auth import (
 from app.config import settings
 from app.database import admins_collection, bookings_collection, rooms_collection
 from app.models import (
+    AdminBookingCreate,
     AdminCreate,
     AdminLogin,
     AdminOut,
     Booking,
     BookingAdminAction,
     BookingStatus,
+    RecurrenceRule,
     Token,
 )
-from app.notifications import notify_booking_decision
+from app.notifications import notify_booking_confirmed, notify_booking_decision
 from app.rate_limit import limiter
 from app.routers.bookings import _booking_out
+from app.routers.rooms import _is_room_free
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+MAX_RECURRING_OCCURRENCES = 104  # 2 years weekly — a sane ceiling against fat-fingered ranges
+
+
+def _add_months(dt: datetime, months: int) -> datetime:
+    month_index = dt.month - 1 + months
+    year = dt.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(dt.day, calendar.monthrange(year, month)[1])
+    return dt.replace(year=year, month=month, day=day)
+
+
+def _generate_occurrences(
+    start: datetime, end: datetime, recurrence: RecurrenceRule
+) -> List[Tuple[datetime, datetime]]:
+    duration = end - start
+    occurrences = [(start, end)]
+    month_offset = 0
+    while True:
+        if recurrence.frequency == "monthly":
+            # Always step from the original start, not the previous occurrence —
+            # otherwise a 31st gets clamped to Feb 28 and every month after
+            # drifts to the 28th instead of returning to the 31st.
+            month_offset += 1
+            next_start = _add_months(start, month_offset)
+        else:
+            next_start = occurrences[-1][0] + timedelta(days=7 if recurrence.frequency == "weekly" else 14)
+        if next_start.date() > recurrence.until.date():
+            break
+        occurrences.append((next_start, next_start + duration))
+        if len(occurrences) > MAX_RECURRING_OCCURRENCES:
+            raise HTTPException(
+                400,
+                f"That recurrence produces more than {MAX_RECURRING_OCCURRENCES} bookings — shorten the range.",
+            )
+    return occurrences
 
 
 @router.post("/register", response_model=AdminOut)
@@ -135,6 +176,95 @@ async def reject_booking(booking_id: str, action: BookingAdminAction, admin=Depe
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])})
     await notify_booking_decision(updated, room, approved=False)
     return _booking_out(updated)
+
+
+@router.post("/bookings", response_model=dict)
+async def admin_create_booking(payload: AdminBookingCreate, admin=Depends(get_current_admin)):
+    """
+    Admin-authored bookings (e.g. clicking a slot on the calendar) skip the
+    normal approval workflow entirely — the admin is the approver, so these
+    are created as 'approved' immediately. If `recurrence` is set, one
+    booking is created per occurrence, all sharing a series_id; every
+    occurrence is checked for room conflicts before any of them are created,
+    so a series is all-or-nothing rather than partially booked.
+    """
+    room = await rooms_collection.find_one({"_id": ObjectId(payload.room_id)})
+    if not room:
+        raise HTTPException(404, "Room not found")
+    if payload.end_time <= payload.start_time:
+        raise HTTPException(400, "End time must be after start time")
+    if payload.headcount > room["capacity"]:
+        raise HTTPException(
+            400, f"{room['name']} can only hold {room['capacity']} people — please pick a larger room."
+        )
+
+    if payload.recurrence:
+        occurrences = _generate_occurrences(payload.start_time, payload.end_time, payload.recurrence)
+    else:
+        occurrences = [(payload.start_time, payload.end_time)]
+
+    conflicts = [
+        start.strftime("%Y-%m-%d")
+        for start, end in occurrences
+        if not await _is_room_free(payload.room_id, start, end)
+    ]
+    if conflicts:
+        raise HTTPException(
+            409, f"{room['name']} is already booked on: {', '.join(conflicts)} — nothing was created."
+        )
+
+    series_id = uuid4().hex if len(occurrences) > 1 else None
+    now = datetime.utcnow()
+    base_fields = payload.model_dump(exclude={"recurrence", "start_time", "end_time"})
+    docs = [
+        {
+            **base_fields,
+            "start_time": start,
+            "end_time": end,
+            "room_name": room["name"],
+            "status": BookingStatus.approved.value,
+            "admin_note": None,
+            "series_id": series_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        for start, end in occurrences
+    ]
+    result = await bookings_collection.insert_many(docs)
+    created_docs = [await bookings_collection.find_one({"_id": _id}) for _id in result.inserted_ids]
+
+    await notify_booking_confirmed(created_docs[0], room)
+
+    return {
+        "created_count": len(created_docs),
+        "series_id": series_id,
+        "bookings": [_booking_out(d) for d in created_docs],
+    }
+
+
+@router.post("/bookings/{booking_id}/cancel", response_model=Booking)
+async def admin_cancel_booking(booking_id: str, admin=Depends(get_current_admin)):
+    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    await bookings_collection.update_one(
+        {"_id": ObjectId(booking_id)},
+        {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
+    )
+    updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    return _booking_out(updated)
+
+
+@router.post("/bookings/series/{series_id}/cancel")
+async def admin_cancel_series(series_id: str, admin=Depends(get_current_admin)):
+    result = await bookings_collection.update_many(
+        {
+            "series_id": series_id,
+            "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
+        },
+        {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
+    )
+    return {"cancelled_count": result.modified_count}
 
 
 @router.get("/dashboard")

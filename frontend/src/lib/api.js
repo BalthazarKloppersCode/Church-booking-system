@@ -85,4 +85,9 @@ export const api = {
     }),
   adminDashboard: () => request('/api/admin/dashboard'),
   adminAnalytics: (days) => request(`/api/admin/analytics?days=${days}`),
+  adminCreateBooking: (payload) =>
+    request('/api/admin/bookings', { method: 'POST', body: JSON.stringify(payload) }),
+  adminCancelBooking: (id) => request(`/api/admin/bookings/${id}/cancel`, { method: 'POST' }),
+  adminCancelSeries: (seriesId) =>
+    request(`/api/admin/bookings/series/${seriesId}/cancel`, { method: 'POST' }),
 };
