@@ -19,7 +19,8 @@ function toLocalISOString(dateStr, timeStr) {
 const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Funeral / memorial'];
 
 export default function BookPage() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
+  const [bookingKind, setBookingKind] = useState(null); // 'church' | 'private'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,7 +41,6 @@ export default function BookPage() {
     phone: '',
     purpose: '',
     purpose_other: '',
-    is_private_event: false,
     notes: '',
   });
 
@@ -52,6 +52,7 @@ export default function BookPage() {
   const [purposes, setPurposes] = useState([]);
   const [purposesLoaded, setPurposesLoaded] = useState(false);
   const forcedPrivate = FORCED_PRIVATE_PURPOSES.includes(form.purpose);
+  const isPrivateEvent = bookingKind === 'private' || forcedPrivate;
 
   const [wantsLounge, setWantsLounge] = useState(false);
   const [loungeChecking, setLoungeChecking] = useState(false);
@@ -135,7 +136,7 @@ export default function BookPage() {
         start_time,
         end_time,
         ...form,
-        is_private_event: forcedPrivate || form.is_private_event,
+        is_private_event: isPrivateEvent,
       });
 
       let loungeBooking = null;
@@ -150,7 +151,7 @@ export default function BookPage() {
             start_time,
             end_time,
             ...form,
-            is_private_event: forcedPrivate || form.is_private_event,
+            is_private_event: isPrivateEvent,
           });
         } catch (err) {
           loungeError = err.message;
@@ -179,8 +180,58 @@ export default function BookPage() {
         </div>
       )}
 
+      {step === 0 && (
+        <div className="card">
+          <h3 style={{ marginBottom: 16 }}>What kind of booking is this?</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '18px 20px', textAlign: 'left', justifyContent: 'flex-start', height: 'auto' }}
+              onClick={() => {
+                setBookingKind('church');
+                setStep(1);
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>Church / congregation activity</div>
+                <p style={{ fontSize: 13, margin: '4px 0 0' }}>
+                  Services, meetings, or ministry activities. Confirmed instantly within two weeks out —
+                  otherwise sent for a quick approval.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '18px 20px', textAlign: 'left', justifyContent: 'flex-start', height: 'auto' }}
+              onClick={() => {
+                setBookingKind('private');
+                setStep(1);
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>Private event</div>
+                <p style={{ fontSize: 13, margin: '4px 0 0' }}>
+                  Weddings, funerals, or other non-congregation events. Always sent to the admin
+                  office for approval first.
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+
       {step === 1 && (
         <form className="card" onSubmit={handleSearch}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: '0 0 14px', color: 'var(--ink-soft)', fontSize: 13 }}
+            onClick={() => setStep(0)}
+          >
+            ← Change booking type
+          </button>
           <div className="field">
             <label>Date</label>
             <input
@@ -396,23 +447,6 @@ export default function BookPage() {
           )}
 
           <div className="field">
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: forcedPrivate ? 'default' : 'pointer' }}>
-              <input
-                type="checkbox"
-                style={{ width: 'auto' }}
-                checked={forcedPrivate || form.is_private_event}
-                disabled={forcedPrivate}
-                onChange={(e) => setForm({ ...form, is_private_event: e.target.checked })}
-              />
-              This is a private event (wedding, funeral, or similar) — not a regular congregation activity
-            </label>
-            {forcedPrivate && (
-              <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
-                Weddings and funerals always require admin approval, so this is ticked automatically.
-              </p>
-            )}
-          </div>
-          <div className="field">
             <label>Anything else the admin office should know? (optional)</label>
             <textarea
               rows={2}
@@ -421,10 +455,12 @@ export default function BookPage() {
             />
           </div>
 
-          {(forcedPrivate || form.is_private_event) && (
+          {isPrivateEvent && (
             <div className="card" style={{ background: 'var(--amber-tint)', border: 'none', marginBottom: 18 }}>
               <p style={{ color: 'var(--amber)', margin: 0, fontSize: 13 }}>
-                Private events always need admin approval before they're confirmed.
+                {bookingKind === 'private'
+                  ? "This is a private event, so it always needs admin approval before it's confirmed."
+                  : "Weddings and funerals always need admin approval before they're confirmed."}
               </p>
             </div>
           )}

@@ -88,6 +88,7 @@ export default function AdminDashboard() {
 
     results.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
     setFilterResults(results);
+    setFilterOpen(false);
   }
 
   function clearFilter() {
@@ -216,10 +217,6 @@ export default function AdminDashboard() {
           accent="var(--teal)"
         />
       </div>
-
-      <Link to="/admin/congregations/dashboard" style={{ display: 'inline-block', marginBottom: 28, fontSize: 14 }}>
-        View bookings by congregation →
-      </Link>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ fontSize: 18 }}>Analytics</h2>
