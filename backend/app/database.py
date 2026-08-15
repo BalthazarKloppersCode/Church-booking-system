@@ -9,6 +9,8 @@ bookings_collection = db["bookings"]
 admins_collection = db["admins"]
 congregations_collection = db["congregations"]
 booking_purposes_collection = db["booking_purposes"]
+areas_collection = db["areas"]
+users_collection = db["users"]
 
 
 async def ensure_indexes():
@@ -20,3 +22,5 @@ async def ensure_indexes():
     await admins_collection.create_index("email", unique=True)
     await congregations_collection.create_index("name", unique=True)
     await booking_purposes_collection.create_index("name", unique=True)
+    await areas_collection.create_index("name", unique=True)
+    await users_collection.create_index("email", unique=True)

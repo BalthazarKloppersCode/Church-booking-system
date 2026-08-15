@@ -51,8 +51,14 @@ export default function BookPage() {
 
   const [result, setResult] = useState(null);
 
-  const [congregations, setCongregations] = useState([]);
-  const [congregationsLoaded, setCongregationsLoaded] = useState(false);
+  const [areas, setAreas] = useState([]);
+  const [areasLoaded, setAreasLoaded] = useState(false);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
+  const [areaCongregations, setAreaCongregations] = useState([]);
+  const [bookerToken, setBookerToken] = useState(() => localStorage.getItem('booker_token') || '');
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [loginSubmitting, setLoginSubmitting] = useState(false);
 
   const [purposes, setPurposes] = useState([]);
   const [purposesLoaded, setPurposesLoaded] = useState(false);
@@ -66,16 +72,42 @@ export default function BookPage() {
 
   useEffect(() => {
     api
-      .listCongregations()
-      .then(setCongregations)
+      .listAreas()
+      .then(setAreas)
       .catch(() => {})
-      .finally(() => setCongregationsLoaded(true));
+      .finally(() => setAreasLoaded(true));
     api
       .listBookingPurposes()
       .then(setPurposes)
       .catch(() => {})
       .finally(() => setPurposesLoaded(true));
   }, []);
+
+  useEffect(() => {
+    if (!selectedAreaId) {
+      setAreaCongregations([]);
+      return;
+    }
+    api.listCongregations(true, selectedAreaId).then(setAreaCongregations).catch(() => setAreaCongregations([]));
+  }, [selectedAreaId]);
+
+  const selectedArea = areas.find((a) => a.id === selectedAreaId);
+  const needsBookerLogin = !!(selectedArea && selectedArea.requires_login && !bookerToken);
+
+  async function handleBookerLogin(e) {
+    e.preventDefault();
+    setLoginError('');
+    setLoginSubmitting(true);
+    try {
+      const result = await api.bookerLogin(loginForm);
+      localStorage.setItem('booker_token', result.access_token);
+      setBookerToken(result.access_token);
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setLoginSubmitting(false);
+    }
+  }
 
   async function handleToggleLounge(checked) {
     setWantsLounge(checked);
@@ -362,6 +394,9 @@ export default function BookPage() {
                     Capacity {s.room.capacity} · {s.room.type.replace('_', ' ')}
                     {s.room.location ? ` · ${s.room.location}` : ''}
                   </p>
+                  {s.room.amenities?.length > 0 && (
+                    <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{s.room.amenities.join(' · ')}</p>
+                  )}
                   {s.room.description && (
                     <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{s.room.description}</p>
                   )}
@@ -405,24 +440,85 @@ export default function BookPage() {
             />
           </div>
           <div className="field">
-            <label>Congregation / group / department</label>
-            {congregationsLoaded && congregations.length === 0 ? (
+            <label>Area</label>
+            {areasLoaded && areas.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--danger)' }}>
-                No congregations have been set up yet — ask the admin office to add one before booking.
+                No areas have been set up yet — ask the admin office to add one before booking.
               </p>
             ) : (
               <select
                 required
-                value={form.congregation}
-                onChange={(e) => setForm({ ...form, congregation: e.target.value })}
+                value={selectedAreaId}
+                onChange={(e) => {
+                  setSelectedAreaId(e.target.value);
+                  setForm({ ...form, congregation: '' });
+                }}
               >
-                <option value="" disabled>Select your congregation / group</option>
-                {congregations.map((c) => (
-                  <option key={c.id} value={c.name}>{c.name}</option>
+                <option value="" disabled>Select an area</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
             )}
           </div>
+
+          {selectedAreaId && needsBookerLogin && (
+            <div className="card" style={{ background: 'var(--teal-tint)', border: 'none', marginBottom: 18 }}>
+              <p style={{ fontSize: 13, marginBottom: 10 }}>
+                Log in to book for this area. This just proves you're allowed to — the booking's own
+                contact details below can still be for someone else, like whoever's actually hosting it.
+              </p>
+              {loginError && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{loginError}</p>}
+              <div className="field">
+                <label>Email</label>
+                <input
+                  type="email"
+                  required
+                  value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ marginBottom: 10 }}>
+                <label>Password</label>
+                <input
+                  type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={loginSubmitting}
+                onClick={handleBookerLogin}
+              >
+                {loginSubmitting ? 'Logging in…' : 'Log in'}
+              </button>
+            </div>
+          )}
+
+          {selectedAreaId && !needsBookerLogin && (
+            <div className="field">
+              <label>Congregation / group</label>
+              {areaCongregations.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                  No congregations set up for this area yet — ask the admin office.
+                </p>
+              ) : (
+                <select
+                  required
+                  value={form.congregation}
+                  onChange={(e) => setForm({ ...form, congregation: e.target.value })}
+                >
+                  <option value="" disabled>Select your congregation / group</option>
+                  {areaCongregations.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
           <div className="field-row">
             <div className="field">
               <label>Email</label>

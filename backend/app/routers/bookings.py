@@ -4,9 +4,9 @@ from typing import List, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
-from app.database import bookings_collection, rooms_collection
+from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
 from app.models import Booking, BookingCreate, BookingStatus
 from app.notifications import (
     notify_booking_confirmed,
@@ -27,7 +27,9 @@ def _booking_out(doc: dict) -> Booking:
 
 @router.post("", response_model=Booking)
 @limiter.limit("10/minute")
-async def create_booking(request: Request, payload: BookingCreate):
+async def create_booking(
+    request: Request, payload: BookingCreate, user=Depends(get_current_user_optional)
+):
     room = await rooms_collection.find_one({"_id": ObjectId(payload.room_id)})
     if not room:
         raise HTTPException(404, "Room not found")
@@ -45,10 +47,25 @@ async def create_booking(request: Request, payload: BookingCreate):
     if not free:
         raise HTTPException(409, "This room is already booked for that time slot")
 
+    area = None
+    congregation_doc = await congregations_collection.find_one({"name": payload.congregation})
+    if congregation_doc and congregation_doc.get("area_id"):
+        area = await areas_collection.find_one({"_id": ObjectId(congregation_doc["area_id"])})
+
+    if area and area.get("requires_login") and not user:
+        raise HTTPException(
+            403,
+            f"You must be logged in to book for {payload.congregation} — log in first, then try again.",
+        )
+
     within_auto_window = (payload.start_time - datetime.utcnow()) <= timedelta(
         days=settings.auto_approve_window_days
     )
-    needs_approval = payload.is_private_event or not within_auto_window
+    needs_approval = (
+        payload.is_private_event
+        or (area and area.get("always_requires_approval"))
+        or not within_auto_window
+    )
     status = BookingStatus.pending if needs_approval else BookingStatus.approved
 
     now = datetime.utcnow()

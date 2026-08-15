@@ -5,6 +5,11 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function bookerAuthHeaders() {
+  const token = localStorage.getItem('booker_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -39,8 +44,8 @@ export const api = {
   deactivateRoom: (id) => request(`/api/rooms/${id}`, { method: 'DELETE' }),
 
   // Congregations
-  listCongregations: (activeOnly = true) =>
-    request(`/api/congregations?active_only=${activeOnly}`),
+  listCongregations: (activeOnly = true, areaId = null) =>
+    request(`/api/congregations?active_only=${activeOnly}${areaId ? `&area_id=${areaId}` : ''}`),
   createCongregation: (payload) =>
     request('/api/congregations', { method: 'POST', body: JSON.stringify(payload) }),
   updateCongregation: (id, payload) =>
@@ -56,9 +61,25 @@ export const api = {
     request(`/api/booking-purposes/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   deactivateBookingPurpose: (id) => request(`/api/booking-purposes/${id}`, { method: 'DELETE' }),
 
+  // Areas
+  listAreas: (activeOnly = true) => request(`/api/areas?active_only=${activeOnly}`),
+  createArea: (payload) => request('/api/areas', { method: 'POST', body: JSON.stringify(payload) }),
+  updateArea: (id, payload) =>
+    request(`/api/areas/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deactivateArea: (id) => request(`/api/areas/${id}`, { method: 'DELETE' }),
+
+  // Booker users (admin-managed) + booker login
+  listUsers: () => request('/api/admin/users'),
+  createUser: (payload) => request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
+  updateUser: (id, payload) =>
+    request(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  deleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
+  bookerLogin: (payload) =>
+    request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+
   // Bookings
   createBooking: (payload) =>
-    request('/api/bookings', { method: 'POST', body: JSON.stringify(payload) }),
+    request('/api/bookings', { method: 'POST', body: JSON.stringify(payload), headers: bookerAuthHeaders() }),
   listBookings: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/bookings${qs ? `?${qs}` : ''}`);
@@ -90,4 +111,7 @@ export const api = {
   adminCancelBooking: (id) => request(`/api/admin/bookings/${id}/cancel`, { method: 'POST' }),
   adminCancelSeries: (seriesId) =>
     request(`/api/admin/bookings/series/${seriesId}/cancel`, { method: 'POST' }),
+  adminUpdateBooking: (id, payload) =>
+    request(`/api/admin/bookings/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  adminDeleteBooking: (id) => request(`/api/admin/bookings/${id}`, { method: 'DELETE' }),
 };

@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 
+const AMENITY_OPTIONS = ['Microphone', 'Sound system', 'AV', 'TV & HDMI', 'Chairs'];
+
 const EMPTY_ROOM = {
   name: '',
   type: 'classroom',
   capacity: '',
   location: '',
+  amenities: [],
   description: '',
   setup_notes: '',
+  booking_message: '',
+  photo_urls_text: '',
 };
 
 export default function AdminRooms() {
@@ -31,8 +36,11 @@ export default function AdminRooms() {
       type: room.type,
       capacity: room.capacity,
       location: room.location || '',
+      amenities: room.amenities || [],
       description: room.description || '',
       setup_notes: room.setup_notes || '',
+      booking_message: room.booking_message || '',
+      photo_urls_text: (room.photo_urls || []).join('\n'),
     });
   }
 
@@ -41,11 +49,25 @@ export default function AdminRooms() {
     setForm(EMPTY_ROOM);
   }
 
+  function toggleAmenity(name) {
+    setForm((f) => ({
+      ...f,
+      amenities: f.amenities.includes(name)
+        ? f.amenities.filter((a) => a !== name)
+        : [...f.amenities, name],
+    }));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     try {
-      const payload = { ...form, capacity: Number(form.capacity) };
+      const { photo_urls_text, ...rest } = form;
+      const payload = {
+        ...rest,
+        capacity: Number(form.capacity),
+        photo_urls: photo_urls_text.split('\n').map((u) => u.trim()).filter(Boolean),
+      };
       if (editingId) {
         await api.updateRoom(editingId, payload);
       } else {
@@ -104,9 +126,25 @@ export default function AdminRooms() {
             <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
           </div>
           <div className="field">
-            <label>What's in the room (furniture, equipment, what the booker should bring)</label>
+            <label>Amenities</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {AMENITY_OPTIONS.map((name) => (
+                <label key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: 'auto' }}
+                    checked={form.amenities.includes(name)}
+                    onChange={() => toggleAmenity(name)}
+                  />
+                  {name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label>Anything else about the room (optional)</label>
             <textarea
-              rows={3}
+              rows={2}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
@@ -117,6 +155,23 @@ export default function AdminRooms() {
               rows={3}
               value={form.setup_notes}
               onChange={(e) => setForm({ ...form, setup_notes: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label>Message sent to bookers on confirmation (what to bring, condition to leave it in, what they're liable for)</label>
+            <textarea
+              rows={4}
+              value={form.booking_message}
+              onChange={(e) => setForm({ ...form, booking_message: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label>Photo URLs (one per line, optional)</label>
+            <textarea
+              rows={3}
+              placeholder="https://..."
+              value={form.photo_urls_text}
+              onChange={(e) => setForm({ ...form, photo_urls_text: e.target.value })}
             />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -138,6 +193,9 @@ export default function AdminRooms() {
                   {room.type.replace('_', ' ')} · Capacity {room.capacity}
                   {room.location ? ` · ${room.location}` : ''}
                 </p>
+                {room.amenities?.length > 0 && (
+                  <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{room.amenities.join(' · ')}</p>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={() => startEdit(room)}>Edit</button>

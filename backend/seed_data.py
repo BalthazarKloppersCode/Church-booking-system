@@ -6,7 +6,7 @@ Edit the ROOMS list below to match your actual campus before (or after)
 running it — you can also edit rooms later from the admin portal.
 """
 import asyncio
-from app.database import rooms_collection, booking_purposes_collection
+from app.database import areas_collection, congregations_collection, rooms_collection, booking_purposes_collection
 
 ROOMS = [
     {"name": "Kids Classroom 1", "type": "classroom", "capacity": 30, "location": None,
@@ -62,6 +62,12 @@ BOOKING_PURPOSES = [
 ]
 
 
+AREAS = [
+    {"name": "Northern Hub", "requires_login": True, "always_requires_approval": False, "active": True},
+    {"name": "Joshua Generation City", "requires_login": False, "always_requires_approval": True, "active": True},
+]
+
+
 async def seed():
     for room in ROOMS:
         await rooms_collection.update_one(
@@ -74,6 +80,25 @@ async def seed():
             {"name": name}, {"$set": {"name": name, "active": True}}, upsert=True
         )
     print(f"Seeded {len(BOOKING_PURPOSES)} booking purposes.")
+
+    for area in AREAS:
+        await areas_collection.update_one(
+            {"name": area["name"]}, {"$set": area}, upsert=True
+        )
+    print(f"Seeded {len(AREAS)} areas.")
+
+    # One-time migration: any congregation created before areas existed has
+    # no area_id yet. Default those to Northern Hub so the (now required)
+    # area_id is never missing — reassign individual congregations to
+    # Joshua Generation City afterward via the admin Manage Lists page.
+    northern_hub = await areas_collection.find_one({"name": "Northern Hub"})
+    if northern_hub:
+        result = await congregations_collection.update_many(
+            {"area_id": {"$in": [None, ""]}},
+            {"$set": {"area_id": str(northern_hub["_id"])}},
+        )
+        if result.modified_count:
+            print(f"Assigned {result.modified_count} existing congregation(s) to Northern Hub (review in Manage Lists).")
 
 
 if __name__ == "__main__":

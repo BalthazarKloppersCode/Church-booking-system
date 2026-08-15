@@ -5,11 +5,12 @@ import MyBookingsPage from './pages/MyBookingsPage';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminApprovals from './pages/admin/AdminApprovals';
+import AdminBookings from './pages/admin/AdminBookings';
 import AdminCalendar from './pages/admin/AdminCalendar';
 import AdminRoomGrid from './pages/admin/AdminRoomGrid';
 import AdminRooms from './pages/admin/AdminRooms';
 import AdminManageLists from './pages/admin/AdminManageLists';
+import AdminUsers from './pages/admin/AdminUsers';
 
 export default function App() {
   return (
@@ -22,11 +23,12 @@ export default function App() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-          <Route path="approvals" element={<AdminApprovals />} />
+          <Route path="bookings" element={<AdminBookings />} />
           <Route path="calendar" element={<AdminCalendar />} />
           <Route path="grid" element={<AdminRoomGrid />} />
           <Route path="rooms" element={<AdminRooms />} />
           <Route path="lists" element={<AdminManageLists />} />
+          <Route path="users" element={<AdminUsers />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,8 +17,10 @@ def _congregation_out(doc: dict) -> Congregation:
 
 
 @router.get("", response_model=List[Congregation])
-async def list_congregations(active_only: bool = True):
+async def list_congregations(active_only: bool = True, area_id: Optional[str] = None):
     query = {"active": True} if active_only else {}
+    if area_id:
+        query["area_id"] = area_id
     congregations = [
         _congregation_out(c) async for c in congregations_collection.find(query).sort("name", 1)
     ]

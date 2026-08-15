@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.config import settings
-from app.database import admins_collection
+from app.database import admins_collection, users_collection
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/admin/login")
@@ -24,7 +24,13 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(admin_id: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
-    payload = {"sub": admin_id, "exp": expire}
+    payload = {"sub": admin_id, "scope": "admin", "exp": expire}
+    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def create_user_access_token(user_id: str) -> str:
+    expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
+    payload = {"sub": user_id, "scope": "user", "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -37,7 +43,9 @@ async def _decode_admin_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
         admin_id: Optional[str] = payload.get("sub")
-        if admin_id is None:
+        # Older tokens issued before "scope" existed have no claim at all —
+        # treat missing scope as admin so existing admin sessions still work.
+        if admin_id is None or payload.get("scope", "admin") != "admin":
             raise credentials_exception
     except JWTError:
         raise credentials_exception
@@ -61,3 +69,24 @@ async def get_current_admin_optional(token: Optional[str] = Depends(oauth2_schem
         return await _decode_admin_token(token)
     except HTTPException:
         return None
+
+
+async def _decode_user_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        user_id: Optional[str] = payload.get("sub")
+        if user_id is None or payload.get("scope") != "user":
+            return None
+    except JWTError:
+        return None
+
+    from bson import ObjectId
+    return await users_collection.find_one({"_id": ObjectId(user_id), "active": True})
+
+
+async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme_optional)) -> Optional[dict]:
+    """Returns the logged-in booker (registered user), or None if no/invalid token — booking
+    for most congregations doesn't require login, so this never raises on its own."""
+    if not token:
+        return None
+    return await _decode_user_token(token)

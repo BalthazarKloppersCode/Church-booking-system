@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 
 const RESOURCES = {
+  areas: {
+    label: 'Areas',
+    singular: 'area',
+    fieldLabel: 'Area name',
+    list: (activeOnly) => api.listAreas(activeOnly),
+    create: (payload) => api.createArea(payload),
+    update: (id, payload) => api.updateArea(id, payload),
+    deactivate: (id) => api.deactivateArea(id),
+    emptyExtra: { requires_login: false, always_requires_approval: false },
+  },
   congregations: {
     label: 'Congregations',
     singular: 'congregation',
@@ -10,6 +20,7 @@ const RESOURCES = {
     create: (payload) => api.createCongregation(payload),
     update: (id, payload) => api.updateCongregation(id, payload),
     deactivate: (id) => api.deactivateCongregation(id),
+    emptyExtra: { area_id: '' },
   },
   purposes: {
     label: 'Booking purposes',
@@ -19,11 +30,17 @@ const RESOURCES = {
     create: (payload) => api.createBookingPurpose(payload),
     update: (id, payload) => api.updateBookingPurpose(id, payload),
     deactivate: (id) => api.deactivateBookingPurpose(id),
+    emptyExtra: {},
   },
 };
 
 export default function AdminManageLists() {
-  const [tab, setTab] = useState('congregations');
+  const [tab, setTab] = useState('areas');
+  const [areas, setAreas] = useState([]);
+
+  useEffect(() => {
+    api.listAreas(false).then(setAreas);
+  }, [tab]);
 
   return (
     <div>
@@ -40,14 +57,18 @@ export default function AdminManageLists() {
           </button>
         ))}
       </div>
-      <ListManager key={tab} resource={RESOURCES[tab]} />
+      <ListManager key={tab} resourceKey={tab} resource={RESOURCES[tab]} areas={areas} />
     </div>
   );
 }
 
-function ListManager({ resource }) {
+function areaName(areas, areaId) {
+  return areas.find((a) => a.id === areaId)?.name || 'No area';
+}
+
+function ListManager({ resourceKey, resource, areas }) {
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ name: '' });
+  const [form, setForm] = useState({ name: '', ...resource.emptyExtra });
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
 
@@ -61,12 +82,12 @@ function ListManager({ resource }) {
 
   function startEdit(item) {
     setEditingId(item.id);
-    setForm({ name: item.name });
+    setForm({ name: item.name, ...resource.emptyExtra, ...item });
   }
 
   function resetForm() {
     setEditingId(null);
-    setForm({ name: '' });
+    setForm({ name: '', ...resource.emptyExtra });
   }
 
   async function handleSubmit(e) {
@@ -107,6 +128,50 @@ function ListManager({ resource }) {
           <label>{resource.fieldLabel}</label>
           <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </div>
+
+        {resourceKey === 'areas' && (
+          <>
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 'auto' }}
+                  checked={form.requires_login}
+                  onChange={(e) => setForm({ ...form, requires_login: e.target.checked })}
+                />
+                Booking requires a logged-in registered user
+              </label>
+            </div>
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 'auto' }}
+                  checked={form.always_requires_approval}
+                  onChange={(e) => setForm({ ...form, always_requires_approval: e.target.checked })}
+                />
+                Always needs admin approval, regardless of timing
+              </label>
+            </div>
+          </>
+        )}
+
+        {resourceKey === 'congregations' && (
+          <div className="field">
+            <label>Area</label>
+            <select
+              required
+              value={form.area_id}
+              onChange={(e) => setForm({ ...form, area_id: e.target.value })}
+            >
+              <option value="" disabled>Select an area</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10 }}>
           {editingId && (
             <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>
@@ -123,6 +188,16 @@ function ListManager({ resource }) {
             <div>
               <strong>{item.name}</strong>
               {!item.active && <span className="badge badge-cancelled" style={{ marginLeft: 8 }}>Inactive</span>}
+              {resourceKey === 'areas' && (
+                <p style={{ fontSize: 13 }}>
+                  {item.requires_login ? 'Login required' : 'Open booking'}
+                  {' · '}
+                  {item.always_requires_approval ? 'Always needs approval' : 'Standard approval rules'}
+                </p>
+              )}
+              {resourceKey === 'congregations' && (
+                <p style={{ fontSize: 13 }}>{areaName(areas, item.area_id)}</p>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" onClick={() => startEdit(item)}>Edit</button>

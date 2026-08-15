@@ -18,6 +18,7 @@ from app.config import settings
 from app.database import admins_collection, bookings_collection, rooms_collection
 from app.models import (
     AdminBookingCreate,
+    AdminBookingUpdate,
     AdminCreate,
     AdminLogin,
     AdminOut,
@@ -253,6 +254,38 @@ async def admin_cancel_booking(booking_id: str, admin=Depends(get_current_admin)
     )
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     return _booking_out(updated)
+
+
+@router.patch("/bookings/{booking_id}", response_model=Booking)
+async def admin_update_booking(
+    booking_id: str, payload: AdminBookingUpdate, admin=Depends(get_current_admin)
+):
+    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+
+    update_data = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "status" in update_data:
+        update_data["status"] = update_data["status"].value if hasattr(update_data["status"], "value") else update_data["status"]
+    if "room_id" in update_data:
+        room = await rooms_collection.find_one({"_id": ObjectId(update_data["room_id"])})
+        if not room:
+            raise HTTPException(404, "Room not found")
+        update_data["room_name"] = room["name"]
+
+    if update_data:
+        update_data["updated_at"] = datetime.utcnow()
+        await bookings_collection.update_one({"_id": ObjectId(booking_id)}, {"$set": update_data})
+    updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    return _booking_out(updated)
+
+
+@router.delete("/bookings/{booking_id}")
+async def admin_delete_booking(booking_id: str, admin=Depends(get_current_admin)):
+    result = await bookings_collection.delete_one({"_id": ObjectId(booking_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "Booking not found")
+    return {"ok": True}
 
 
 @router.post("/bookings/series/{series_id}/cancel")

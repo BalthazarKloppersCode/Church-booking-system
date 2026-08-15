@@ -38,18 +38,33 @@ class BookingStatus(str, Enum):
 
 # ---------- Rooms ----------
 
+ROOM_AMENITIES = ["Microphone", "Sound system", "AV", "TV & HDMI", "Chairs"]
+
+
 class RoomBase(BaseModel):
     name: str
     type: RoomType
     capacity: int
     location: Optional[str] = None
+    amenities: List[str] = Field(
+        default_factory=list,
+        description=f"Subset of: {', '.join(ROOM_AMENITIES)}",
+    )
     description: Optional[str] = Field(
         default=None,
-        description="What's in the room and what the booker needs to bring, e.g. 'Chairs, sound system, projector. Bring your own markers.'",
+        description="Anything else about the room not covered by the fixed amenities list",
     )
     setup_notes: Optional[str] = Field(
         default=None,
         description="What this room should look like when booking is done, e.g. 'Chairs stacked against back wall, tables wiped, projector off'",
+    )
+    booking_message: Optional[str] = Field(
+        default=None,
+        description="Custom message sent to bookers on confirmation — what to bring, condition to leave it in, what they're liable for",
+    )
+    photo_urls: List[str] = Field(
+        default_factory=list,
+        description="Pasted image URLs shown/linked in the booking confirmation",
     )
     photo_url: Optional[str] = None
     active: bool = True
@@ -64,8 +79,11 @@ class RoomUpdate(BaseModel):
     type: Optional[RoomType] = None
     capacity: Optional[int] = None
     location: Optional[str] = None
+    amenities: Optional[List[str]] = None
     description: Optional[str] = None
     setup_notes: Optional[str] = None
+    booking_message: Optional[str] = None
+    photo_urls: Optional[List[str]] = None
     photo_url: Optional[str] = None
     active: Optional[bool] = None
 
@@ -74,10 +92,41 @@ class Room(RoomBase):
     id: str
 
 
+# ---------- Areas ----------
+
+class AreaBase(BaseModel):
+    name: str
+    requires_login: bool = Field(
+        default=False,
+        description="If true, only a logged-in registered user may book congregations in this area",
+    )
+    always_requires_approval: bool = Field(
+        default=False,
+        description="If true, bookings for congregations in this area always need admin approval, regardless of timing",
+    )
+    active: bool = True
+
+
+class AreaCreate(AreaBase):
+    pass
+
+
+class AreaUpdate(BaseModel):
+    name: Optional[str] = None
+    requires_login: Optional[bool] = None
+    always_requires_approval: Optional[bool] = None
+    active: Optional[bool] = None
+
+
+class Area(AreaBase):
+    id: str
+
+
 # ---------- Congregations ----------
 
 class CongregationBase(BaseModel):
     name: str
+    area_id: str
     active: bool = True
 
 
@@ -87,11 +136,48 @@ class CongregationCreate(CongregationBase):
 
 class CongregationUpdate(BaseModel):
     name: Optional[str] = None
+    area_id: Optional[str] = None
     active: Optional[bool] = None
 
 
 class Congregation(CongregationBase):
     id: str
+
+
+# ---------- Booker users ----------
+
+class UserBase(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+    active: bool = True
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class UserOut(UserBase):
+    id: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserToken(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
 
 
 # ---------- Booking purposes ----------
@@ -144,6 +230,28 @@ class BookingCreate(BaseModel):
 
 class BookingAdminAction(BaseModel):
     admin_note: Optional[str] = None
+
+
+class AdminBookingUpdate(BaseModel):
+    room_id: Optional[str] = None
+    requester_name: Optional[str] = None
+    congregation: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    headcount: Optional[int] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    purpose: Optional[str] = None
+    purpose_other: Optional[str] = None
+    is_private_event: Optional[bool] = None
+    notes: Optional[str] = None
+    status: Optional[BookingStatus] = None
+    admin_note: Optional[str] = None
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _normalize_start_end(cls, v: Optional[datetime]) -> Optional[datetime]:
+        return _to_naive_utc(v) if v is not None else v
 
 
 class RecurrenceFrequency(str, Enum):

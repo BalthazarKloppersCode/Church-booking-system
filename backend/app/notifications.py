@@ -22,6 +22,16 @@ def _room_setup_block(room_name: str, setup_notes: str | None) -> str:
     return f"\n\nWhen you're done with {room_name}, please leave it like this:\n{setup_notes}"
 
 
+def _room_message_block(room: dict) -> str:
+    block = ""
+    if room.get("booking_message"):
+        block += f"\n\n{room['booking_message']}"
+    photo_urls = room.get("photo_urls") or []
+    if photo_urls:
+        block += "\n\nPhotos of the room:\n" + "\n".join(photo_urls)
+    return block
+
+
 async def send_email(to: str, subject: str, body: str):
     if not settings.resend_api_key:
         print(f"[email skipped - no RESEND_API_KEY] to={to} subject={subject}")
@@ -67,7 +77,8 @@ async def notify_booking_confirmed(booking: dict, room: dict):
         f"Time: {booking['start_time'].strftime('%H:%M')} - {booking['end_time'].strftime('%H:%M')}\n"
         f"Expected attendance: {booking['headcount']}\n"
         f"Purpose: {booking['purpose']}"
-        f"{_room_setup_block(room['name'], room.get('setup_notes'))}\n\n"
+        f"{_room_setup_block(room['name'], room.get('setup_notes'))}"
+        f"{_room_message_block(room)}\n\n"
         f"If you need to change or cancel this booking, contact the admin office."
     )
     await send_email(booking["email"], subject, body)

@@ -204,6 +204,9 @@ export default function BuildingMap({ suggestions, onSelect }) {
                 Capacity {activeInfo.room.capacity} · {activeInfo.room.type.replace('_', ' ')}
                 {activeInfo.room.location ? ` · ${activeInfo.room.location}` : ''}
               </p>
+              {activeInfo.room.amenities?.length > 0 && (
+                <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{activeInfo.room.amenities.join(' · ')}</p>
+              )}
               {activeInfo.room.description && (
                 <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{activeInfo.room.description}</p>
               )}

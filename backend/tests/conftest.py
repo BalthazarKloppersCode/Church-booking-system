@@ -18,17 +18,32 @@ async def app_state(monkeypatch):
     from app.config import settings
     from app.rate_limit import limiter
     from app.routers import admin as admin_router
+    from app.routers import areas as areas_router
+    from app.routers import auth as booker_auth_router
     from app.routers import bookings as bookings_router
     from app.routers import congregations as congregations_router
     from app.routers import rooms as rooms_router
+    from app.routers import users as users_router
 
     mock_db = AsyncMongoMockClient()["church_booking_test"]
     rooms_col = mock_db["rooms"]
     bookings_col = mock_db["bookings"]
     admins_col = mock_db["admins"]
     congregations_col = mock_db["congregations"]
+    areas_col = mock_db["areas"]
+    users_col = mock_db["users"]
 
-    modules = (db_module, rooms_router, bookings_router, admin_router, auth_module, congregations_router)
+    modules = (
+        db_module,
+        rooms_router,
+        bookings_router,
+        admin_router,
+        auth_module,
+        congregations_router,
+        areas_router,
+        users_router,
+        booker_auth_router,
+    )
     for module in modules:
         if hasattr(module, "rooms_collection"):
             monkeypatch.setattr(module, "rooms_collection", rooms_col)
@@ -38,6 +53,10 @@ async def app_state(monkeypatch):
             monkeypatch.setattr(module, "admins_collection", admins_col)
         if hasattr(module, "congregations_collection"):
             monkeypatch.setattr(module, "congregations_collection", congregations_col)
+        if hasattr(module, "areas_collection"):
+            monkeypatch.setattr(module, "areas_collection", areas_col)
+        if hasattr(module, "users_collection"):
+            monkeypatch.setattr(module, "users_collection", users_col)
 
     monkeypatch.setattr(settings, "admin_setup_secret", "test-setup-secret")
     monkeypatch.setattr(settings, "auto_approve_window_days", 14)
@@ -49,6 +68,8 @@ async def app_state(monkeypatch):
         "bookings": bookings_col,
         "admins": admins_col,
         "congregations": congregations_col,
+        "areas": areas_col,
+        "users": users_col,
     }
 
 

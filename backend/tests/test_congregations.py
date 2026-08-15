@@ -24,17 +24,23 @@ async def test_list_congregations_public_no_auth(client):
     assert resp.json() == []
 
 
+async def _area_id(client, headers):
+    created = await client.post("/api/areas", json={"name": "Northern Hub"}, headers=headers)
+    return created.json()["id"]
+
+
 async def test_create_congregation_requires_admin(client):
-    resp = await client.post("/api/congregations", json={"name": "Youth Group"})
+    resp = await client.post("/api/congregations", json={"name": "Youth Group", "area_id": "x"})
     assert resp.status_code == 401
 
 
 async def test_create_and_list_congregation(client):
     token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {token}"}
+    area_id = await _area_id(client, headers)
 
     created = await client.post(
-        "/api/congregations", json={"name": "Youth Group"}, headers=headers
+        "/api/congregations", json={"name": "Youth Group", "area_id": area_id}, headers=headers
     )
     assert created.status_code == 200
     assert created.json()["active"] is True
@@ -48,16 +54,18 @@ async def test_create_and_list_congregation(client):
 async def test_duplicate_congregation_name_rejected(client):
     token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {token}"}
-    await client.post("/api/congregations", json={"name": "Youth Group"}, headers=headers)
-    dup = await client.post("/api/congregations", json={"name": "Youth Group"}, headers=headers)
+    area_id = await _area_id(client, headers)
+    await client.post("/api/congregations", json={"name": "Youth Group", "area_id": area_id}, headers=headers)
+    dup = await client.post("/api/congregations", json={"name": "Youth Group", "area_id": area_id}, headers=headers)
     assert dup.status_code == 400
 
 
 async def test_deactivate_congregation_hides_it_from_default_list(client):
     token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {token}"}
+    area_id = await _area_id(client, headers)
     created = await client.post(
-        "/api/congregations", json={"name": "Youth Group"}, headers=headers
+        "/api/congregations", json={"name": "Youth Group", "area_id": area_id}, headers=headers
     )
     congregation_id = created.json()["id"]
 

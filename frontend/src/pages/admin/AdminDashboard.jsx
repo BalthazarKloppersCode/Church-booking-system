@@ -201,7 +201,7 @@ export default function AdminDashboard() {
           label="Awaiting approval"
           value={stats.pending_approvals}
           accent="var(--amber)"
-          link={stats.pending_approvals > 0 ? '/admin/approvals' : null}
+          link={stats.pending_approvals > 0 ? '/admin/bookings' : null}
         />
         <StatCard label="Bookings this week" value={stats.bookings_this_week} accent="var(--teal)" />
         <StatCard label="Active rooms" value={stats.active_rooms} accent="var(--success)" />

@@ -4,11 +4,12 @@ import { useAdmin, logoutAdmin } from '../../lib/useAdmin';
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/approvals', label: 'Approvals' },
+  { to: '/admin/bookings', label: 'Bookings' },
   { to: '/admin/grid', label: 'Room grid' },
   { to: '/admin/calendar', label: 'Calendar' },
   { to: '/admin/rooms', label: 'Manage rooms' },
   { to: '/admin/lists', label: 'Manage lists' },
+  { to: '/admin/users', label: 'Manage users' },
 ];
 
 export default function AdminLayout() {
