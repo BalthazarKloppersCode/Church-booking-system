@@ -49,7 +49,7 @@ async def test_falls_back_to_largest_rooms_when_nothing_fits(client, rooms_col):
     assert suggestions[0]["fit_quality"] == "too_small"
 
 
-async def test_suggestion_reflects_room_already_booked(client, rooms_col):
+async def test_suggestion_reflects_room_already_booked(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col, name="Busy Room", capacity=30)
     req = _suggestion_request(headcount=20)
 
@@ -65,7 +65,7 @@ async def test_suggestion_reflects_room_already_booked(client, rooms_col):
         "purpose": "Bible study",
         "is_private_event": False,
     }
-    booked = await client.post("/api/bookings", json=booking_payload)
+    booked = await client.post("/api/bookings", json=booking_payload, headers=booker_headers)
     assert booked.status_code == 200
 
     resp = await client.post("/api/rooms/suggest", json=req)

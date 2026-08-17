@@ -47,25 +47,23 @@ async def create_booking(
     if not free:
         raise HTTPException(409, "This room is already booked for that time slot")
 
+    if not user:
+        raise HTTPException(403, "You must be logged in to make a booking — log in first, then try again.")
+
     area = None
     congregation_doc = await congregations_collection.find_one({"name": payload.congregation})
     if congregation_doc and congregation_doc.get("area_id"):
         area = await areas_collection.find_one({"_id": ObjectId(congregation_doc["area_id"])})
 
-    if area and area.get("requires_login") and not user:
-        raise HTTPException(
-            403,
-            f"You must be logged in to book for {payload.congregation} — log in first, then try again.",
-        )
+    # The 2-week auto-approve window only applies to areas that explicitly opt
+    # out of always-requires-approval (currently just Northern Hub). No area
+    # match, or an area that hasn't opted out, defaults to needing approval.
+    area_always_requires_approval = True if area is None else area.get("always_requires_approval", True)
 
     within_auto_window = (payload.start_time - datetime.utcnow()) <= timedelta(
         days=settings.auto_approve_window_days
     )
-    needs_approval = (
-        payload.is_private_event
-        or (area and area.get("always_requires_approval"))
-        or not within_auto_window
-    )
+    needs_approval = payload.is_private_event or area_always_requires_approval or not within_auto_window
     status = BookingStatus.pending if needs_approval else BookingStatus.approved
 
     now = datetime.utcnow()

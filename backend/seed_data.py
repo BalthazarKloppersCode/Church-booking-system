@@ -63,8 +63,8 @@ BOOKING_PURPOSES = [
 
 
 AREAS = [
-    {"name": "Northern Hub", "requires_login": True, "always_requires_approval": False, "active": True},
-    {"name": "Joshua Generation City", "requires_login": False, "always_requires_approval": True, "active": True},
+    {"name": "Northern Hub", "always_requires_approval": False, "active": True},
+    {"name": "Joshua Generation City", "always_requires_approval": True, "active": True},
 ]
 
 

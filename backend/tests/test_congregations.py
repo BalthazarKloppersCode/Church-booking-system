@@ -82,14 +82,15 @@ async def test_deactivate_congregation_hides_it_from_default_list(client):
     assert "Youth Group" in names
 
 
-async def test_list_bookings_filters_by_congregation(client, rooms_col):
+async def test_list_bookings_filters_by_congregation(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col)
     await client.post(
-        "/api/bookings", json=booking_payload(room_id, congregation="Youth Group")
+        "/api/bookings", json=booking_payload(room_id, congregation="Youth Group"), headers=booker_headers
     )
     await client.post(
         "/api/bookings",
         json=booking_payload(room_id, congregation="Deacons", start_offset_days=6),
+        headers=booker_headers,
     )
 
     resp = await client.get("/api/bookings", params={"congregation": "Youth Group"})

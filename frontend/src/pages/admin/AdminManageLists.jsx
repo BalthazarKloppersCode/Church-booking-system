@@ -10,7 +10,7 @@ const RESOURCES = {
     create: (payload) => api.createArea(payload),
     update: (id, payload) => api.updateArea(id, payload),
     deactivate: (id) => api.deactivateArea(id),
-    emptyExtra: { requires_login: false, always_requires_approval: false },
+    emptyExtra: { always_requires_approval: true },
   },
   congregations: {
     label: 'Congregations',
@@ -130,30 +130,21 @@ function ListManager({ resourceKey, resource, areas }) {
         </div>
 
         {resourceKey === 'areas' && (
-          <>
-            <div className="field">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  style={{ width: 'auto' }}
-                  checked={form.requires_login}
-                  onChange={(e) => setForm({ ...form, requires_login: e.target.checked })}
-                />
-                Booking requires a logged-in registered user
-              </label>
-            </div>
-            <div className="field">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  style={{ width: 'auto' }}
-                  checked={form.always_requires_approval}
-                  onChange={(e) => setForm({ ...form, always_requires_approval: e.target.checked })}
-                />
-                Always needs admin approval, regardless of timing
-              </label>
-            </div>
-          </>
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={form.always_requires_approval}
+                onChange={(e) => setForm({ ...form, always_requires_approval: e.target.checked })}
+              />
+              Always needs admin approval, regardless of timing
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+              Every booking requires a logged-in user regardless of area. Uncheck this only for
+              areas that should also get the standard 2-week auto-approve window (e.g. Northern Hub).
+            </p>
+          </div>
         )}
 
         {resourceKey === 'congregations' && (
@@ -190,9 +181,7 @@ function ListManager({ resourceKey, resource, areas }) {
               {!item.active && <span className="badge badge-cancelled" style={{ marginLeft: 8 }}>Inactive</span>}
               {resourceKey === 'areas' && (
                 <p style={{ fontSize: 13 }}>
-                  {item.requires_login ? 'Login required' : 'Open booking'}
-                  {' · '}
-                  {item.always_requires_approval ? 'Always needs approval' : 'Standard approval rules'}
+                  {item.always_requires_approval ? 'Always needs approval' : '2-week auto-approve window applies'}
                 </p>
               )}
               {resourceKey === 'congregations' && (

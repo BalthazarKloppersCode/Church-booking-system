@@ -91,9 +91,6 @@ export default function BookPage() {
     api.listCongregations(true, selectedAreaId).then(setAreaCongregations).catch(() => setAreaCongregations([]));
   }, [selectedAreaId]);
 
-  const selectedArea = areas.find((a) => a.id === selectedAreaId);
-  const needsBookerLogin = !!(selectedArea && selectedArea.requires_login && !bookerToken);
-
   async function handleBookerLogin(e) {
     e.preventDefault();
     setLoginError('');
@@ -222,6 +219,49 @@ export default function BookPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!bookerToken) {
+    return (
+      <div className="container" style={{ maxWidth: 480 }}>
+        <div className="eyebrow">
+          <Link to="/" style={{ color: 'inherit' }}>← Back home</Link>
+        </div>
+        <h1 style={{ marginBottom: 12 }}>Log in to book a room</h1>
+        <p style={{ marginBottom: 24 }}>
+          You need to be logged in to make a booking. This just proves you're allowed to — the
+          booking's own contact details can still be for someone else, like whoever's actually
+          hosting the event.
+        </p>
+        <form className="card" onSubmit={handleBookerLogin}>
+          {loginError && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{loginError}</p>}
+          <div className="field">
+            <label>Email</label>
+            <input
+              type="email"
+              required
+              value={loginForm.email}
+              onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input
+              type="password"
+              required
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+            />
+          </div>
+          <button className="btn btn-primary btn-block" disabled={loginSubmitting}>
+            {loginSubmitting ? 'Logging in…' : 'Log in'}
+          </button>
+        </form>
+        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 16 }}>
+          Don't have an account? Contact the admin office to get one set up.
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -462,43 +502,7 @@ export default function BookPage() {
             )}
           </div>
 
-          {selectedAreaId && needsBookerLogin && (
-            <div className="card" style={{ background: 'var(--teal-tint)', border: 'none', marginBottom: 18 }}>
-              <p style={{ fontSize: 13, marginBottom: 10 }}>
-                Log in to book for this area. This just proves you're allowed to — the booking's own
-                contact details below can still be for someone else, like whoever's actually hosting it.
-              </p>
-              {loginError && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{loginError}</p>}
-              <div className="field">
-                <label>Email</label>
-                <input
-                  type="email"
-                  required
-                  value={loginForm.email}
-                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                />
-              </div>
-              <div className="field" style={{ marginBottom: 10 }}>
-                <label>Password</label>
-                <input
-                  type="password"
-                  required
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                />
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={loginSubmitting}
-                onClick={handleBookerLogin}
-              >
-                {loginSubmitting ? 'Logging in…' : 'Log in'}
-              </button>
-            </div>
-          )}
-
-          {selectedAreaId && !needsBookerLogin && (
+          {selectedAreaId && (
             <div className="field">
               <label>Congregation / group</label>
               {areaCongregations.length === 0 ? (

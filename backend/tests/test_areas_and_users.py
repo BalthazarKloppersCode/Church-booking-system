@@ -19,7 +19,7 @@ async def _admin_token(client):
 
 
 async def _make_area(client, headers, **overrides):
-    payload = {"name": "Northern Hub", "requires_login": False, "always_requires_approval": False}
+    payload = {"name": "Northern Hub", "always_requires_approval": False}
     payload.update(overrides)
     resp = await client.post("/api/areas", json=payload, headers=headers)
     return resp.json()["id"]
@@ -32,10 +32,10 @@ async def _make_congregation(client, headers, area_id, name="Durbanville AM"):
     return resp.json()
 
 
-async def test_booking_for_login_required_area_rejected_without_token(client, rooms_col):
+async def test_booking_rejected_without_login_regardless_of_area(client, rooms_col):
     admin_token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {admin_token}"}
-    area_id = await _make_area(client, headers, name="Northern Hub", requires_login=True)
+    area_id = await _make_area(client, headers, name="Northern Hub")
     await _make_congregation(client, headers, area_id, "Durbanville AM")
     room_id = await make_room(rooms_col)
 
@@ -45,10 +45,10 @@ async def test_booking_for_login_required_area_rejected_without_token(client, ro
     assert resp.status_code == 403
 
 
-async def test_booking_for_login_required_area_succeeds_when_logged_in(client, rooms_col):
+async def test_booking_succeeds_when_logged_in_for_opted_out_area(client, rooms_col):
     admin_token = await _admin_token(client)
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
-    area_id = await _make_area(client, admin_headers, name="Northern Hub", requires_login=True)
+    area_id = await _make_area(client, admin_headers, name="Northern Hub")
     await _make_congregation(client, admin_headers, area_id, "Durbanville AM")
     room_id = await make_room(rooms_col)
 
@@ -74,11 +74,11 @@ async def test_booking_for_login_required_area_succeeds_when_logged_in(client, r
     assert resp.json()["status"] == "approved"
 
 
-async def test_area_always_requires_approval_overrides_two_week_window(client, rooms_col):
+async def test_area_always_requires_approval_overrides_two_week_window(client, rooms_col, booker_headers):
     admin_token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {admin_token}"}
     area_id = await _make_area(
-        client, headers, name="Joshua Generation City", requires_login=False, always_requires_approval=True
+        client, headers, name="Joshua Generation City", always_requires_approval=True
     )
     await _make_congregation(client, headers, area_id, "JGC Main")
     room_id = await make_room(rooms_col)
@@ -88,19 +88,26 @@ async def test_area_always_requires_approval_overrides_two_week_window(client, r
     resp = await client.post(
         "/api/bookings",
         json=booking_payload(room_id, congregation="JGC Main", start_offset_days=2),
+        headers=booker_headers,
     )
     assert resp.status_code == 200
     assert resp.json()["status"] == "pending"
 
 
-async def test_congregation_with_no_area_keeps_default_two_week_rule(client, rooms_col):
+async def test_congregation_with_no_area_defaults_to_needing_approval(client, rooms_col, booker_headers):
+    """
+    Only areas that explicitly opt out (always_requires_approval=False, like
+    Northern Hub) get the 2-week auto-approve perk. A congregation with no
+    matching area at all must default to needing approval, not auto-approve.
+    """
     room_id = await make_room(rooms_col)
     resp = await client.post(
         "/api/bookings",
         json=booking_payload(room_id, congregation="Unlisted Group", start_offset_days=2),
+        headers=booker_headers,
     )
     assert resp.status_code == 200
-    assert resp.json()["status"] == "approved"
+    assert resp.json()["status"] == "pending"
 
 
 async def test_admin_can_manage_users(client):
@@ -171,9 +178,9 @@ async def test_user_token_cannot_access_admin_routes(client):
     assert resp.status_code == 401
 
 
-async def test_admin_can_edit_and_delete_any_booking(client, rooms_col):
+async def test_admin_can_edit_and_delete_any_booking(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col)
-    booking = await client.post("/api/bookings", json=booking_payload(room_id))
+    booking = await client.post("/api/bookings", json=booking_payload(room_id), headers=booker_headers)
     booking_id = booking.json()["id"]
 
     admin_token = await _admin_token(client)

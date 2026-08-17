@@ -96,13 +96,14 @@ class Room(RoomBase):
 
 class AreaBase(BaseModel):
     name: str
-    requires_login: bool = Field(
-        default=False,
-        description="If true, only a logged-in registered user may book congregations in this area",
-    )
     always_requires_approval: bool = Field(
-        default=False,
-        description="If true, bookings for congregations in this area always need admin approval, regardless of timing",
+        default=True,
+        description=(
+            "Every booking now requires a logged-in user regardless of area. This flag is "
+            "about timing instead: if true (the default), bookings for this area always need "
+            "admin approval no matter how far out they are. Set false only for areas that "
+            "should get the standard 2-week auto-approve window, e.g. Northern Hub."
+        ),
     )
     active: bool = True
 
@@ -113,7 +114,6 @@ class AreaCreate(AreaBase):
 
 class AreaUpdate(BaseModel):
     name: Optional[str] = None
-    requires_login: Optional[bool] = None
     always_requires_approval: Optional[bool] = None
     active: Optional[bool] = None
 

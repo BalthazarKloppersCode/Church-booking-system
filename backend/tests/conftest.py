@@ -102,6 +102,48 @@ async def congregations_col(app_state):
     return app_state["congregations"]
 
 
+@pytest_asyncio.fixture
+async def booker_headers(app_state):
+    """
+    Auth header for a registered booker. Inserts the user doc directly
+    (like make_room does for rooms) instead of going through the admin
+    register-a-user API, so this doesn't collide with tests that also
+    bootstrap their own admin via the "first admin" setup-secret flow.
+    """
+    from app.auth import create_user_access_token
+
+    result = await app_state["users"].insert_one({
+        "name": "Booker",
+        "email": "booker@example.com",
+        "phone": "+10000000000",
+        "active": True,
+        "password_hash": "unused",
+    })
+    token = create_user_access_token(str(result.inserted_id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def auto_approve_congregation(app_state):
+    """
+    A congregation in an area that has opted OUT of always-requiring
+    approval (like Northern Hub) — the only kind of congregation where the
+    2-week auto-approve window actually applies. Returns the congregation
+    name to pass as `congregation` in a booking payload.
+    """
+    area = await app_state["areas"].insert_one({
+        "name": "Northern Hub",
+        "always_requires_approval": False,
+        "active": True,
+    })
+    await app_state["congregations"].insert_one({
+        "name": "Durbanville AM",
+        "area_id": str(area.inserted_id),
+        "active": True,
+    })
+    return "Durbanville AM"
+
+
 async def make_room(rooms_col, **overrides):
     doc = {
         "name": "Room A",

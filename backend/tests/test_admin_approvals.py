@@ -18,10 +18,10 @@ async def _admin_token(client):
     return login.json()["access_token"]
 
 
-async def test_pending_booking_appears_in_approvals_and_can_be_approved(client, rooms_col):
+async def test_pending_booking_appears_in_approvals_and_can_be_approved(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col)
     pending = await client.post(
-        "/api/bookings", json=booking_payload(room_id, start_offset_days=30)
+        "/api/bookings", json=booking_payload(room_id, start_offset_days=30), headers=booker_headers
     )
     assert pending.json()["status"] == "pending"
     booking_id = pending.json()["id"]
@@ -41,10 +41,10 @@ async def test_pending_booking_appears_in_approvals_and_can_be_approved(client, 
     assert approved.json()["admin_note"] == "Looks good"
 
 
-async def test_rejecting_a_booking_sets_status_and_note(client, rooms_col):
+async def test_rejecting_a_booking_sets_status_and_note(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col)
     pending = await client.post(
-        "/api/bookings", json=booking_payload(room_id, is_private_event=True)
+        "/api/bookings", json=booking_payload(room_id, is_private_event=True), headers=booker_headers
     )
     booking_id = pending.json()["id"]
 
@@ -66,9 +66,11 @@ async def test_approvals_endpoint_requires_admin_auth(client):
     assert resp.status_code == 401
 
 
-async def test_dashboard_counts_pending_and_active_rooms(client, rooms_col):
+async def test_dashboard_counts_pending_and_active_rooms(client, rooms_col, booker_headers):
     room_id = await make_room(rooms_col)
-    await client.post("/api/bookings", json=booking_payload(room_id, start_offset_days=30))
+    await client.post(
+        "/api/bookings", json=booking_payload(room_id, start_offset_days=30), headers=booker_headers
+    )
 
     token = await _admin_token(client)
     resp = await client.get(
