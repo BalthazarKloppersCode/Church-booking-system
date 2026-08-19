@@ -56,6 +56,13 @@ export default function BookPage() {
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [areaCongregations, setAreaCongregations] = useState([]);
   const [bookerToken, setBookerToken] = useState(() => localStorage.getItem('booker_token') || '');
+  const [bookerUser, setBookerUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('booker_user') || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [loginSubmitting, setLoginSubmitting] = useState(false);
@@ -91,6 +98,16 @@ export default function BookPage() {
     api.listCongregations(true, selectedAreaId).then(setAreaCongregations).catch(() => setAreaCongregations([]));
   }, [selectedAreaId]);
 
+  // Bookers are already assigned an area on their account (set by the admin) —
+  // that's what actually governs the approval rule, so pre-select it and skip
+  // making them choose. Accounts created before area_id existed have none, so
+  // they still see the Area picker as a fallback.
+  useEffect(() => {
+    if (bookerUser?.area_id) {
+      setSelectedAreaId(bookerUser.area_id);
+    }
+  }, [bookerUser]);
+
   async function handleBookerLogin(e) {
     e.preventDefault();
     setLoginError('');
@@ -98,7 +115,9 @@ export default function BookPage() {
     try {
       const result = await api.bookerLogin(loginForm);
       localStorage.setItem('booker_token', result.access_token);
+      localStorage.setItem('booker_user', JSON.stringify(result.user));
       setBookerToken(result.access_token);
+      setBookerUser(result.user);
     } catch (err) {
       setLoginError(err.message);
     } finally {
@@ -479,28 +498,37 @@ export default function BookPage() {
               onChange={(e) => setForm({ ...form, requester_name: e.target.value })}
             />
           </div>
-          <div className="field">
-            <label>Area</label>
-            {areasLoaded && areas.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
-                No areas have been set up yet — ask the admin office to add one before booking.
+          {bookerUser?.area_id ? (
+            <div className="field">
+              <label>Area</label>
+              <p style={{ fontSize: 14, margin: 0 }}>
+                {areas.find((a) => a.id === bookerUser.area_id)?.name || '—'}
               </p>
-            ) : (
-              <select
-                required
-                value={selectedAreaId}
-                onChange={(e) => {
-                  setSelectedAreaId(e.target.value);
-                  setForm({ ...form, congregation: '' });
-                }}
-              >
-                <option value="" disabled>Select an area</option>
-                {areas.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="field">
+              <label>Area</label>
+              {areasLoaded && areas.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                  No areas have been set up yet — ask the admin office to add one before booking.
+                </p>
+              ) : (
+                <select
+                  required
+                  value={selectedAreaId}
+                  onChange={(e) => {
+                    setSelectedAreaId(e.target.value);
+                    setForm({ ...form, congregation: '' });
+                  }}
+                >
+                  <option value="" disabled>Select an area</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {selectedAreaId && (
             <div className="field">
