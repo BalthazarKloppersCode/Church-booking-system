@@ -150,6 +150,14 @@ class UserBase(BaseModel):
     name: str
     email: EmailStr
     phone: str
+    area_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The area this user belongs to. Drives the auto-approve/needs-approval rule for "
+            "bookings they make — set this to whichever area's login-required perk they should "
+            "get (e.g. Northern Hub), not the congregation typed into the booking form."
+        ),
+    )
     active: bool = True
 
 
@@ -161,6 +169,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    area_id: Optional[str] = None
     password: Optional[str] = None
     active: Optional[bool] = None
 

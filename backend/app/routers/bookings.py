@@ -50,10 +50,18 @@ async def create_booking(
     if not user:
         raise HTTPException(403, "You must be logged in to make a booking — log in first, then try again.")
 
+    # The area that governs approval rules comes from the logged-in user's own
+    # assignment (set when the admin created their account), not whatever
+    # congregation they typed into the form — that's what makes the perk
+    # tied to who they are rather than what they claim. Fall back to the
+    # congregation's area only for users created before area_id existed.
     area = None
-    congregation_doc = await congregations_collection.find_one({"name": payload.congregation})
-    if congregation_doc and congregation_doc.get("area_id"):
-        area = await areas_collection.find_one({"_id": ObjectId(congregation_doc["area_id"])})
+    if user.get("area_id"):
+        area = await areas_collection.find_one({"_id": ObjectId(user["area_id"])})
+    else:
+        congregation_doc = await congregations_collection.find_one({"name": payload.congregation})
+        if congregation_doc and congregation_doc.get("area_id"):
+            area = await areas_collection.find_one({"_id": ObjectId(congregation_doc["area_id"])})
 
     # The 2-week auto-approve window only applies to areas that explicitly opt
     # out of always-requires-approval (currently just Northern Hub). No area

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 
-const EMPTY_USER = { name: '', email: '', phone: '', password: '' };
+const EMPTY_USER = { name: '', email: '', phone: '', area_id: '', password: '' };
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [form, setForm] = useState(EMPTY_USER);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
@@ -15,11 +16,16 @@ export default function AdminUsers() {
 
   useEffect(() => {
     load();
+    api.listAreas(false).then(setAreas);
   }, []);
+
+  function areaName(areaId) {
+    return areas.find((a) => a.id === areaId)?.name || 'No area set';
+  }
 
   function startEdit(user) {
     setEditingId(user.id);
-    setForm({ name: user.name, email: user.email, phone: user.phone, password: '' });
+    setForm({ name: user.name, email: user.email, phone: user.phone, area_id: user.area_id || '', password: '' });
   }
 
   function resetForm() {
@@ -31,12 +37,13 @@ export default function AdminUsers() {
     e.preventDefault();
     setError('');
     try {
+      const payload = { name: form.name, email: form.email, phone: form.phone, area_id: form.area_id || null };
       if (editingId) {
-        const payload = { name: form.name, email: form.email, phone: form.phone };
         if (form.password) payload.password = form.password;
         await api.updateUser(editingId, payload);
       } else {
-        await api.createUser(form);
+        payload.password = form.password;
+        await api.createUser(payload);
       }
       resetForm();
       await load();
@@ -78,6 +85,22 @@ export default function AdminUsers() {
             <input required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
           <div className="field">
+            <label>Area</label>
+            <select
+              value={form.area_id}
+              onChange={(e) => setForm({ ...form, area_id: e.target.value })}
+            >
+              <option value="">No area (always needs approval)</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+              Drives whether this person's bookings get the 2-week auto-approve window —
+              set it to the area they belong to (e.g. Northern Hub), not their congregation.
+            </p>
+          </div>
+          <div className="field">
             <label>{editingId ? 'New password (leave blank to keep current)' : 'Password'}</label>
             <input
               type="password"
@@ -103,6 +126,7 @@ export default function AdminUsers() {
                 <strong>{u.name}</strong>
                 {!u.active && <span className="badge badge-cancelled" style={{ marginLeft: 8 }}>Inactive</span>}
                 <p style={{ fontSize: 13 }}>{u.email} · {u.phone}</p>
+                <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{areaName(u.area_id)}</p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={() => startEdit(u)}>Edit</button>

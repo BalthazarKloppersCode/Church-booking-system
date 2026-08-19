@@ -31,6 +31,7 @@ async def create_user(payload: UserCreate, admin=Depends(get_current_admin)):
         "name": payload.name,
         "email": payload.email,
         "phone": payload.phone,
+        "area_id": payload.area_id,
         "active": payload.active,
         "password_hash": hash_password(payload.password),
     }

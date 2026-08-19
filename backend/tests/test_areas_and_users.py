@@ -74,6 +74,81 @@ async def test_booking_succeeds_when_logged_in_for_opted_out_area(client, rooms_
     assert resp.json()["status"] == "approved"
 
 
+async def test_user_area_overrides_typed_congregation_for_approval(client, rooms_col):
+    """
+    The user's own area_id (set when the admin created their account) governs
+    approval, not whatever congregation name they type into the booking form.
+    A Joshua Generation City user typing a Northern Hub congregation name
+    must still require approval.
+    """
+    admin_token = await _admin_token(client)
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    northern_hub_id = await _make_area(client, admin_headers, name="Northern Hub", always_requires_approval=False)
+    jgc_id = await _make_area(client, admin_headers, name="Joshua Generation City", always_requires_approval=True)
+    await _make_congregation(client, admin_headers, northern_hub_id, "Durbanville AM")
+    room_id = await make_room(rooms_col)
+
+    created_user = await client.post(
+        "/api/admin/users",
+        json={
+            "name": "JGC Booker",
+            "email": "jgc-booker@example.com",
+            "phone": "+10000000000",
+            "area_id": jgc_id,
+            "password": "letmein1",
+        },
+        headers=admin_headers,
+    )
+    assert created_user.status_code == 200
+    assert created_user.json()["area_id"] == jgc_id
+
+    login = await client.post(
+        "/api/auth/login", json={"email": "jgc-booker@example.com", "password": "letmein1"}
+    )
+    user_token = login.json()["access_token"]
+
+    resp = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, congregation="Durbanville AM", start_offset_days=2),
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+
+
+async def test_user_with_no_area_falls_back_to_congregation_area(client, rooms_col):
+    """
+    A user created before area_id existed (or left unset) still gets the old
+    congregation-derived behavior, so nothing breaks for existing accounts.
+    """
+    admin_token = await _admin_token(client)
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    area_id = await _make_area(client, admin_headers, name="Northern Hub", always_requires_approval=False)
+    await _make_congregation(client, admin_headers, area_id, "Durbanville AM")
+    room_id = await make_room(rooms_col)
+
+    created_user = await client.post(
+        "/api/admin/users",
+        json={"name": "Booker", "email": "no-area@example.com", "phone": "+10000000000", "password": "letmein1"},
+        headers=admin_headers,
+    )
+    assert created_user.status_code == 200
+    assert created_user.json()["area_id"] is None
+
+    login = await client.post(
+        "/api/auth/login", json={"email": "no-area@example.com", "password": "letmein1"}
+    )
+    user_token = login.json()["access_token"]
+
+    resp = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, congregation="Durbanville AM", start_offset_days=2),
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "approved"
+
+
 async def test_area_always_requires_approval_overrides_two_week_window(client, rooms_col, booker_headers):
     admin_token = await _admin_token(client)
     headers = {"Authorization": f"Bearer {admin_token}"}
