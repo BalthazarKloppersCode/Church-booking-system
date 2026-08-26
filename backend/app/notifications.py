@@ -9,6 +9,8 @@ Both providers are free at the volume a single church campus will use:
 If API keys are not set in .env, calls are skipped and logged instead of
 raising errors, so the booking flow still works during setup/testing.
 """
+import asyncio
+
 import httpx
 import resend
 from app.config import settings
@@ -37,12 +39,18 @@ async def send_email(to: str, subject: str, body: str):
         print(f"[email skipped - no RESEND_API_KEY] to={to} subject={subject}")
         return
     try:
-        resend.Emails.send({
-            "from": settings.email_from,
-            "to": [to],
-            "subject": subject,
-            "text": body,
-        })
+        # resend's SDK is a blocking/sync HTTP call — running it directly in
+        # an async function would stall the whole event loop (every other
+        # concurrent request) for the round-trip. Push it to a thread instead.
+        await asyncio.to_thread(
+            resend.Emails.send,
+            {
+                "from": settings.email_from,
+                "to": [to],
+                "subject": subject,
+                "text": body,
+            },
+        )
     except Exception as e:
         print(f"[email error] {e}")
 
@@ -81,8 +89,7 @@ async def notify_booking_confirmed(booking: dict, room: dict):
         f"{_room_message_block(room)}\n\n"
         f"If you need to change or cancel this booking, contact the admin office."
     )
-    await send_email(booking["email"], subject, body)
-    await send_whatsapp(booking["phone"], body)
+    await asyncio.gather(send_email(booking["email"], subject, body), send_whatsapp(booking["phone"], body))
 
 
 async def notify_booking_pending(booking: dict, room: dict):
@@ -95,8 +102,7 @@ async def notify_booking_pending(booking: dict, room: dict):
         f"({'private event' if booking['is_private_event'] else 'more than 2 weeks in advance'}). "
         f"We'll let you know as soon as it's reviewed."
     )
-    await send_email(booking["email"], subject, body)
-    await send_whatsapp(booking["phone"], body)
+    await asyncio.gather(send_email(booking["email"], subject, body), send_whatsapp(booking["phone"], body))
 
 
 async def notify_booking_decision(booking: dict, room: dict, approved: bool):
@@ -112,8 +118,7 @@ async def notify_booking_decision(booking: dict, room: dict, approved: bool):
     if booking.get("admin_note"):
         body += f"\n\nNote from admin: {booking['admin_note']}"
     body += "\n\nPlease contact the admin office if you'd like to discuss alternatives."
-    await send_email(booking["email"], subject, body)
-    await send_whatsapp(booking["phone"], body)
+    await asyncio.gather(send_email(booking["email"], subject, body), send_whatsapp(booking["phone"], body))
 
 
 async def notify_admin_new_request(booking: dict, room: dict):
@@ -126,7 +131,10 @@ async def notify_admin_new_request(booking: dict, room: dict):
         f"{'This is a private event.' if booking['is_private_event'] else ''}\n\n"
         f"Review it in the admin portal: {settings.frontend_url}/admin/approvals"
     )
+    tasks = []
     if settings.admin_notify_email:
-        await send_email(settings.admin_notify_email, subject, body)
+        tasks.append(send_email(settings.admin_notify_email, subject, body))
     if settings.admin_notify_whatsapp:
-        await send_whatsapp(settings.admin_notify_whatsapp, body)
+        tasks.append(send_whatsapp(settings.admin_notify_whatsapp, body))
+    if tasks:
+        await asyncio.gather(*tasks)

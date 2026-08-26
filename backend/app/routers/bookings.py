@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
@@ -28,7 +28,10 @@ def _booking_out(doc: dict) -> Booking:
 @router.post("", response_model=Booking)
 @limiter.limit("10/minute")
 async def create_booking(
-    request: Request, payload: BookingCreate, user=Depends(get_current_user_optional)
+    request: Request,
+    payload: BookingCreate,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user_optional),
 ):
     room = await rooms_collection.find_one({"_id": ObjectId(payload.room_id)})
     if not room:
@@ -87,11 +90,13 @@ async def create_booking(
     created = await bookings_collection.find_one({"_id": result.inserted_id})
     booking_out = _booking_out(created)
 
+    # Notifications hit external APIs (Resend/WhatsApp) — run them after the
+    # response is sent instead of making the booker wait on that round-trip.
     if needs_approval:
-        await notify_booking_pending(created, room)
-        await notify_admin_new_request(created, room)
+        background_tasks.add_task(notify_booking_pending, created, room)
+        background_tasks.add_task(notify_admin_new_request, created, room)
     else:
-        await notify_booking_confirmed(created, room)
+        background_tasks.add_task(notify_booking_confirmed, created, room)
 
     return booking_out
 

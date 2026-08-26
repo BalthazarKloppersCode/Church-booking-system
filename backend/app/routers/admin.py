@@ -1,3 +1,4 @@
+import asyncio
 import calendar
 from collections import Counter
 from datetime import datetime, timedelta
@@ -5,7 +6,7 @@ from typing import List, Tuple
 from uuid import uuid4
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.auth import (
     create_access_token,
@@ -136,7 +137,12 @@ async def pending_approvals(admin=Depends(get_current_admin)):
 
 
 @router.post("/bookings/{booking_id}/approve", response_model=Booking)
-async def approve_booking(booking_id: str, action: BookingAdminAction, admin=Depends(get_current_admin)):
+async def approve_booking(
+    booking_id: str,
+    action: BookingAdminAction,
+    background_tasks: BackgroundTasks,
+    admin=Depends(get_current_admin),
+):
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     if not booking:
         raise HTTPException(404, "Booking not found")
@@ -153,12 +159,17 @@ async def approve_booking(booking_id: str, action: BookingAdminAction, admin=Dep
     )
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])})
-    await notify_booking_decision(updated, room, approved=True)
+    background_tasks.add_task(notify_booking_decision, updated, room, approved=True)
     return _booking_out(updated)
 
 
 @router.post("/bookings/{booking_id}/reject", response_model=Booking)
-async def reject_booking(booking_id: str, action: BookingAdminAction, admin=Depends(get_current_admin)):
+async def reject_booking(
+    booking_id: str,
+    action: BookingAdminAction,
+    background_tasks: BackgroundTasks,
+    admin=Depends(get_current_admin),
+):
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     if not booking:
         raise HTTPException(404, "Booking not found")
@@ -175,12 +186,14 @@ async def reject_booking(booking_id: str, action: BookingAdminAction, admin=Depe
     )
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])})
-    await notify_booking_decision(updated, room, approved=False)
+    background_tasks.add_task(notify_booking_decision, updated, room, approved=False)
     return _booking_out(updated)
 
 
 @router.post("/bookings", response_model=dict)
-async def admin_create_booking(payload: AdminBookingCreate, admin=Depends(get_current_admin)):
+async def admin_create_booking(
+    payload: AdminBookingCreate, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)
+):
     """
     Admin-authored bookings (e.g. clicking a slot on the calendar) skip the
     normal approval workflow entirely — the admin is the approver, so these
@@ -204,10 +217,16 @@ async def admin_create_booking(payload: AdminBookingCreate, admin=Depends(get_cu
     else:
         occurrences = [(payload.start_time, payload.end_time)]
 
+    # Each conflict check is its own DB round-trip — for a long recurring
+    # series (up to MAX_RECURRING_OCCURRENCES) that's a lot of them, so run
+    # them concurrently rather than one at a time.
+    is_free = await asyncio.gather(
+        *(_is_room_free(payload.room_id, start, end) for start, end in occurrences)
+    )
     conflicts = [
         start.strftime("%Y-%m-%d")
-        for start, end in occurrences
-        if not await _is_room_free(payload.room_id, start, end)
+        for (start, end), free in zip(occurrences, is_free)
+        if not free
     ]
     if conflicts:
         raise HTTPException(
@@ -232,9 +251,12 @@ async def admin_create_booking(payload: AdminBookingCreate, admin=Depends(get_cu
         for start, end in occurrences
     ]
     result = await bookings_collection.insert_many(docs)
-    created_docs = [await bookings_collection.find_one({"_id": _id}) for _id in result.inserted_ids]
+    # We already have every field of every created doc in `docs` — no need
+    # to read them back from the DB one at a time, we just have to attach
+    # the ids Mongo assigned.
+    created_docs = [{**doc, "_id": _id} for doc, _id in zip(docs, result.inserted_ids)]
 
-    await notify_booking_confirmed(created_docs[0], room)
+    background_tasks.add_task(notify_booking_confirmed, created_docs[0], room)
 
     return {
         "created_count": len(created_docs),
@@ -305,23 +327,29 @@ async def dashboard_stats(admin=Depends(get_current_admin)):
     now = datetime.utcnow()
     week_end = now + timedelta(days=7)
 
-    pending_count = await bookings_collection.count_documents({"status": BookingStatus.pending.value})
-    upcoming_week_count = await bookings_collection.count_documents(
-        {
-            "status": BookingStatus.approved.value,
-            "start_time": {"$gte": now, "$lte": week_end},
-        }
-    )
-    total_rooms = await rooms_collection.count_documents({"active": True})
+    async def _fetch_upcoming():
+        return [
+            _booking_out(b)
+            async for b in bookings_collection.find(
+                {"status": BookingStatus.approved.value, "start_time": {"$gte": now}}
+            )
+            .sort("start_time", 1)
+            .limit(10)
+        ]
 
-    upcoming = [
-        _booking_out(b)
-        async for b in bookings_collection.find(
-            {"status": BookingStatus.approved.value, "start_time": {"$gte": now}}
-        )
-        .sort("start_time", 1)
-        .limit(10)
-    ]
+    # These four queries don't depend on each other — run them concurrently
+    # instead of waiting on each round-trip in turn.
+    pending_count, upcoming_week_count, total_rooms, upcoming = await asyncio.gather(
+        bookings_collection.count_documents({"status": BookingStatus.pending.value}),
+        bookings_collection.count_documents(
+            {
+                "status": BookingStatus.approved.value,
+                "start_time": {"$gte": now, "$lte": week_end},
+            }
+        ),
+        rooms_collection.count_documents({"active": True}),
+        _fetch_upcoming(),
+    )
 
     return {
         "pending_approvals": pending_count,

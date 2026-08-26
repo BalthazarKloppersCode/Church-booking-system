@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 
@@ -83,10 +84,15 @@ async def suggest_rooms(request: Request, req: RoomSuggestionRequest):
             r async for r in rooms_collection.find(fallback_query).sort("capacity", -1)
         ][:3]
 
+    # Each availability check is its own DB round-trip — run them concurrently
+    # instead of one-by-one, since they're independent of each other.
+    availability = await asyncio.gather(
+        *(_is_room_free(str(room["_id"]), req.start_time, req.end_time) for room in candidates)
+    )
+
     suggestions = []
-    for room in candidates:
+    for room, free in zip(candidates, availability):
         room_out = _room_out(room)
-        free = await _is_room_free(str(room["_id"]), req.start_time, req.end_time)
 
         if room["capacity"] < req.headcount:
             fit = "too_small"
