@@ -51,10 +51,7 @@ export default function BookPage() {
 
   const [result, setResult] = useState(null);
 
-  const [areas, setAreas] = useState([]);
-  const [areasLoaded, setAreasLoaded] = useState(false);
-  const [selectedAreaId, setSelectedAreaId] = useState('');
-  const [areaCongregations, setAreaCongregations] = useState([]);
+  const [congregationOptions, setCongregationOptions] = useState([]);
   const [bookerToken, setBookerToken] = useState(() => localStorage.getItem('booker_token') || '');
   const [bookerUser, setBookerUser] = useState(() => {
     try {
@@ -79,33 +76,21 @@ export default function BookPage() {
 
   useEffect(() => {
     api
-      .listAreas()
-      .then(setAreas)
-      .catch(() => {})
-      .finally(() => setAreasLoaded(true));
-    api
       .listBookingPurposes()
       .then(setPurposes)
       .catch(() => {})
       .finally(() => setPurposesLoaded(true));
   }, []);
 
+  // Which area governs approval comes from the booker's own account (set by
+  // the admin in Manage Users) — they never have to pick it here, just their
+  // congregation. Accounts with no area assigned yet (pre-dating that field)
+  // see every active congregation instead of a filtered list.
   useEffect(() => {
-    if (!selectedAreaId) {
-      setAreaCongregations([]);
-      return;
-    }
-    api.listCongregations(true, selectedAreaId).then(setAreaCongregations).catch(() => setAreaCongregations([]));
-  }, [selectedAreaId]);
-
-  // Bookers are already assigned an area on their account (set by the admin) —
-  // that's what actually governs the approval rule, so pre-select it and skip
-  // making them choose. Accounts created before area_id existed have none, so
-  // they still see the Area picker as a fallback.
-  useEffect(() => {
-    if (bookerUser?.area_id) {
-      setSelectedAreaId(bookerUser.area_id);
-    }
+    api
+      .listCongregations(true, bookerUser?.area_id || null)
+      .then(setCongregationOptions)
+      .catch(() => setCongregationOptions([]));
   }, [bookerUser]);
 
   async function handleBookerLogin(e) {
@@ -498,59 +483,25 @@ export default function BookPage() {
               onChange={(e) => setForm({ ...form, requester_name: e.target.value })}
             />
           </div>
-          {bookerUser?.area_id ? (
-            <div className="field">
-              <label>Area</label>
-              <p style={{ fontSize: 14, margin: 0 }}>
-                {areas.find((a) => a.id === bookerUser.area_id)?.name || '—'}
+          <div className="field">
+            <label>Congregation / group</label>
+            {congregationOptions.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                No congregations set up yet — ask the admin office.
               </p>
-            </div>
-          ) : (
-            <div className="field">
-              <label>Area</label>
-              {areasLoaded && areas.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
-                  No areas have been set up yet — ask the admin office to add one before booking.
-                </p>
-              ) : (
-                <select
-                  required
-                  value={selectedAreaId}
-                  onChange={(e) => {
-                    setSelectedAreaId(e.target.value);
-                    setForm({ ...form, congregation: '' });
-                  }}
-                >
-                  <option value="" disabled>Select an area</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-
-          {selectedAreaId && (
-            <div className="field">
-              <label>Congregation / group</label>
-              {areaCongregations.length === 0 ? (
-                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
-                  No congregations set up for this area yet — ask the admin office.
-                </p>
-              ) : (
-                <select
-                  required
-                  value={form.congregation}
-                  onChange={(e) => setForm({ ...form, congregation: e.target.value })}
-                >
-                  <option value="" disabled>Select your congregation / group</option>
-                  {areaCongregations.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+            ) : (
+              <select
+                required
+                value={form.congregation}
+                onChange={(e) => setForm({ ...form, congregation: e.target.value })}
+              >
+                <option value="" disabled>Select your congregation / group</option>
+                {congregationOptions.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className="field-row">
             <div className="field">
               <label>Email</label>
