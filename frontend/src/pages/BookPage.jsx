@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import BuildingMap from '../components/BuildingMap';
+
+// Pulls in react-big-calendar/date-fns — its own lazy chunk so the default
+// booking flow doesn't pay for it unless someone actually opens the calendar.
+const BookerCalendar = lazy(() => import('../components/BookerCalendar'));
 
 const ROOM_TYPES = [
   { value: '', label: 'Any room type' },
@@ -11,11 +15,24 @@ const ROOM_TYPES = [
   { value: 'coffee_shop', label: 'Coffee shop' },
   { value: 'lounge', label: 'Lounge' },
   { value: 'leap', label: 'Leap' },
+  { value: 'barista', label: 'Barista shop' },
 ];
 
 function toLocalISOString(dateStr, timeStr) {
   // dateStr: '2026-08-20', timeStr: '14:00' -> ISO for backend
   return new Date(`${dateStr}T${timeStr}:00`).toISOString();
+}
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function toDateValue(d) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toTimeValue(d) {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Funeral / memorial'];
@@ -74,6 +91,13 @@ export default function BookPage() {
   const [loungeAvailable, setLoungeAvailable] = useState(null);
   const [loungeRoom, setLoungeRoom] = useState(null);
 
+  const [wantsHebrews, setWantsHebrews] = useState(false);
+  const [hebrewsChecking, setHebrewsChecking] = useState(false);
+  const [hebrewsAvailable, setHebrewsAvailable] = useState(null);
+  const [hebrewsRoom, setHebrewsRoom] = useState(null);
+
+  const [showCalendar, setShowCalendar] = useState(false);
+
   useEffect(() => {
     api
       .listBookingPurposes()
@@ -131,6 +155,39 @@ export default function BookPage() {
     } finally {
       setLoungeChecking(false);
     }
+  }
+
+  async function handleToggleHebrews(checked) {
+    setWantsHebrews(checked);
+    if (!checked) {
+      setHebrewsAvailable(null);
+      setHebrewsRoom(null);
+      return;
+    }
+    setHebrewsChecking(true);
+    try {
+      const start_time = toLocalISOString(search.date, search.startTime);
+      const end_time = toLocalISOString(search.date, search.endTime);
+      const results = await api.suggestRooms({ headcount: 1, start_time, end_time, type: 'barista' });
+      const hebrews = results[0];
+      setHebrewsRoom(hebrews ? hebrews.room : null);
+      setHebrewsAvailable(hebrews ? hebrews.available : false);
+    } catch {
+      setHebrewsAvailable(false);
+      setHebrewsRoom(null);
+    } finally {
+      setHebrewsChecking(false);
+    }
+  }
+
+  function handlePickFromCalendar(start, end) {
+    setSearch((s) => ({
+      ...s,
+      date: toDateValue(start),
+      startTime: toTimeValue(start),
+      endTime: toTimeValue(end),
+    }));
+    setShowCalendar(false);
   }
 
   async function handleSearch(e) {
@@ -216,7 +273,24 @@ export default function BookPage() {
         }
       }
 
-      setResult({ ...booking, loungeBooking, loungeError });
+      let hebrewsBooking = null;
+      let hebrewsError = null;
+      if (wantsHebrews && hebrewsAvailable && hebrewsRoom) {
+        try {
+          hebrewsBooking = await api.createBooking({
+            room_id: hebrewsRoom.id,
+            headcount: Math.min(Number(search.headcount), hebrewsRoom.capacity),
+            start_time,
+            end_time,
+            ...form,
+            is_private_event: isPrivateEvent,
+          });
+        } catch (err) {
+          hebrewsError = err.message;
+        }
+      }
+
+      setResult({ ...booking, loungeBooking, loungeError, hebrewsBooking, hebrewsError });
       setStep(4);
     } catch (err) {
       setError(err.message);
@@ -389,7 +463,23 @@ export default function BookPage() {
           <button className="btn btn-primary btn-block" disabled={loading}>
             {loading ? 'Finding rooms…' : 'Find available rooms'}
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ marginTop: 10, fontSize: 13 }}
+            onClick={() => setShowCalendar((v) => !v)}
+          >
+            {showCalendar ? '✕ Close calendar' : '📅 Browse the calendar instead'}
+          </button>
         </form>
+      )}
+
+      {step === 1 && showCalendar && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <Suspense fallback={<p>Loading calendar…</p>}>
+            <BookerCalendar onPick={handlePickFromCalendar} />
+          </Suspense>
+        </div>
       )}
 
       {step === 2 && (
@@ -448,7 +538,7 @@ export default function BookPage() {
                     <span className="badge badge-rejected">Already booked at this time</span>
                   )}
                   {s.available && s.fit_quality === 'oversized' && (
-                    <span className="badge badge-cancelled">Larger than you need</span>
+                    <span className="badge badge-cancelled">Too large for your group — pick a smaller room</span>
                   )}
                   {s.available && s.fit_quality === 'too_small' && (
                     <span className="badge badge-pending">Below your headcount</span>
@@ -456,7 +546,7 @@ export default function BookPage() {
                 </div>
                 <button
                   className="btn btn-primary"
-                  disabled={!s.available}
+                  disabled={!s.available || s.fit_quality === 'oversized'}
                   onClick={() => pickRoom(s)}
                 >
                   Select
@@ -584,6 +674,36 @@ export default function BookPage() {
             </div>
           )}
 
+          {selectedRoom.room.type === 'coffee_shop' && (
+            <div className="field">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  style={{ width: 'auto' }}
+                  checked={wantsHebrews}
+                  onChange={(e) => handleToggleHebrews(e.target.checked)}
+                />
+                Also book Hebrews (the barista shop) for this event
+              </label>
+              <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+                Hebrews always needs admin approval, regardless of timing.
+              </p>
+              {wantsHebrews && hebrewsChecking && (
+                <p style={{ fontSize: 13 }}>Checking Hebrews availability…</p>
+              )}
+              {wantsHebrews && !hebrewsChecking && hebrewsAvailable === false && (
+                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                  Hebrews is already booked for this time slot — it won't be included with this booking.
+                </p>
+              )}
+              {wantsHebrews && !hebrewsChecking && hebrewsAvailable === true && (
+                <p style={{ fontSize: 13, color: 'var(--success)' }}>
+                  Hebrews is free for this time — it will be requested alongside {selectedRoom.room.name}, pending approval.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="field">
             <label>Anything else the admin office should know? (optional)</label>
             <textarea
@@ -643,6 +763,16 @@ export default function BookPage() {
           {result.loungeError && (
             <p style={{ marginTop: 10, fontSize: 14, color: 'var(--danger)' }}>
               Couldn't book the Lounge for reception ({result.loungeError}) — please contact the admin office to arrange it separately.
+            </p>
+          )}
+          {result.hebrewsBooking && (
+            <p style={{ marginTop: 10, fontSize: 14 }}>
+              Hebrews has also been requested for the same time — pending admin approval.
+            </p>
+          )}
+          {result.hebrewsError && (
+            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--danger)' }}>
+              Couldn't book Hebrews ({result.hebrewsError}) — please contact the admin office to arrange it separately.
             </p>
           )}
           <Link to="/" className="btn btn-secondary" style={{ marginTop: 10 }}>Back home</Link>

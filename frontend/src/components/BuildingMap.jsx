@@ -7,8 +7,8 @@ const ROOM_NAME_MAP = {
   'Kids 3': 'Kids Classroom 3',
   'Kids 4': 'Kids Classroom 4',
   'Kids 5': 'Kids Classroom 5',
-  'Leap 1': 'Leap 1',
-  'Leap 2': 'Leap 2',
+  'Leap 1': 'Leap Classroom 1',
+  'Leap 2': 'Leap Classroom 2',
   'Coffee Shop': 'Coffee Shop',
   'Main Hall': 'Main Hall',
   'Lounge': 'Lounge',
@@ -40,13 +40,16 @@ const STYLE = `
 function RoomShape({ mapName, points, path, textX, textY, textStyle, labelClass, suggestions, selectedRoomId, onSelectRoom, fill }) {
   const dbName = ROOM_NAME_MAP[mapName];
   const suggestion = suggestions.find((s) => s.room.name === dbName);
-  const clickable = !!suggestion && suggestion.available;
+  // Too large for the group (more than 20% over the best-fitting option, for
+  // anything other than a classroom/leap room) is a hard block, same as
+  // already being booked — not just a soft "larger than you need" badge.
+  const blocked = !suggestion || !suggestion.available || suggestion.fit_quality === 'oversized';
+  const clickable = !!suggestion && !blocked;
   const isSelected = suggestion && selectedRoomId === suggestion.room.id;
 
   const classes = ['bm-room-shape'];
   if (clickable) classes.push('clickable');
-  if (suggestion && !suggestion.available) classes.push('unavailable');
-  if (!suggestion) classes.push('unavailable');
+  if (blocked) classes.push('unavailable');
   if (isSelected) classes.push('selected');
 
   const shapeProps = {
@@ -210,14 +213,23 @@ export default function BuildingMap({ suggestions, onSelect }) {
               {activeInfo.room.description && (
                 <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{activeInfo.room.description}</p>
               )}
-              {activeInfo.fit_quality === 'oversized' && (
-                <span className="badge badge-cancelled">Larger than you need</span>
+              {!activeInfo.available && (
+                <span className="badge badge-rejected">Already booked at this time</span>
+              )}
+              {activeInfo.available && activeInfo.fit_quality === 'oversized' && (
+                <span className="badge badge-cancelled">Too large for your group — pick a smaller room</span>
               )}
               {activeInfo.fit_quality === 'too_small' && (
                 <span className="badge badge-pending">Below your headcount</span>
               )}
             </div>
-            <button className="btn btn-primary" onClick={handleConfirmSelect}>Select</button>
+            <button
+              className="btn btn-primary"
+              disabled={!activeInfo.available || activeInfo.fit_quality === 'oversized'}
+              onClick={handleConfirmSelect}
+            >
+              Select
+            </button>
           </div>
         </div>
       )}

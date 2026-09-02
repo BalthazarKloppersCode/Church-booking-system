@@ -13,6 +13,7 @@ const EMPTY_ROOM = {
   setup_notes: '',
   booking_message: '',
   photo_urls_text: '',
+  always_requires_approval: false,
 };
 
 export default function AdminRooms() {
@@ -41,6 +42,7 @@ export default function AdminRooms() {
       setup_notes: room.setup_notes || '',
       booking_message: room.booking_message || '',
       photo_urls_text: (room.photo_urls || []).join('\n'),
+      always_requires_approval: room.always_requires_approval || false,
     });
   }
 
@@ -109,6 +111,7 @@ export default function AdminRooms() {
               <option value="coffee_shop">Coffee shop</option>
               <option value="lounge">Lounge</option>
               <option value="leap">Leap</option>
+              <option value="barista">Barista shop</option>
             </select>
           </div>
           <div className="field">
@@ -164,6 +167,21 @@ export default function AdminRooms() {
               value={form.booking_message}
               onChange={(e) => setForm({ ...form, booking_message: e.target.value })}
             />
+          </div>
+          <div className="field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={form.always_requires_approval}
+                onChange={(e) => setForm({ ...form, always_requires_approval: e.target.checked })}
+              />
+              Always needs admin approval, regardless of timing
+            </label>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+              Overrides the 2-week auto-approve window for this specific room — e.g. Hebrews (the
+              barista shop add-on).
+            </p>
           </div>
           <div className="field">
             <label>Photo URLs (one per line, optional)</label>

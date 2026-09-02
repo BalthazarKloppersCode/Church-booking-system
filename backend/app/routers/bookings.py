@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
 from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
-from app.models import Booking, BookingCreate, BookingStatus
+from app.models import Booking, BookingCreate, BookingStatus, CalendarEntry
 from app.notifications import (
     notify_booking_confirmed,
     notify_booking_pending,
@@ -74,7 +74,15 @@ async def create_booking(
     within_auto_window = (payload.start_time - datetime.utcnow()) <= timedelta(
         days=settings.auto_approve_window_days
     )
-    needs_approval = payload.is_private_event or area_always_requires_approval or not within_auto_window
+    # A room can force approval on its own too (e.g. Hebrews, the barista
+    # shop add-on) regardless of the booker's area or how far out it is.
+    room_always_requires_approval = room.get("always_requires_approval", False)
+    needs_approval = (
+        payload.is_private_event
+        or area_always_requires_approval
+        or not within_auto_window
+        or room_always_requires_approval
+    )
     status = BookingStatus.pending if needs_approval else BookingStatus.approved
 
     now = datetime.utcnow()
@@ -137,6 +145,34 @@ async def list_bookings(
 
     bookings = [_booking_out(b) async for b in bookings_collection.find(query).sort("start_time", 1)]
     return bookings
+
+
+@router.get("/calendar", response_model=List[CalendarEntry])
+async def list_bookings_calendar(
+    start_after: Optional[datetime] = None,
+    start_before: Optional[datetime] = None,
+):
+    """
+    Feeds the booker-facing "browse the calendar" view. Deliberately returns
+    only room/time/status — never requester name, congregation, email, or
+    phone — so a booker's browser never receives another congregation's
+    contact details just to show what's free. Only pending/approved
+    bookings are included, since those are the only statuses that actually
+    block a time slot.
+    """
+    query: dict = {"status": {"$in": [BookingStatus.pending.value, BookingStatus.approved.value]}}
+    if start_after or start_before:
+        query["start_time"] = {}
+        if start_after:
+            query["start_time"]["$gte"] = start_after
+        if start_before:
+            query["start_time"]["$lte"] = start_before
+
+    projection = {"_id": 0, "room_name": 1, "start_time": 1, "end_time": 1, "status": 1}
+    return [
+        CalendarEntry(**b)
+        async for b in bookings_collection.find(query, projection).sort("start_time", 1)
+    ]
 
 
 @router.post("/{booking_id}/cancel", response_model=Booking)

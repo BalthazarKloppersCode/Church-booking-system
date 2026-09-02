@@ -86,6 +86,10 @@ export const api = {
   },
   cancelBooking: (id, email) =>
     request(`/api/bookings/${id}/cancel?email=${encodeURIComponent(email)}`, { method: 'POST' }),
+  listBookingsCalendar: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/bookings/calendar${qs ? `?${qs}` : ''}`);
+  },
 
   // Admin
   adminRegister: (payload) =>

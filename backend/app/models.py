@@ -27,6 +27,7 @@ class RoomType(str, Enum):
     coffee_shop = "coffee_shop"
     lounge = "lounge"
     leap = "leap"
+    barista = "barista"
 
 
 class BookingStatus(str, Enum):
@@ -67,6 +68,13 @@ class RoomBase(BaseModel):
         description="Pasted image URLs shown/linked in the booking confirmation",
     )
     photo_url: Optional[str] = None
+    always_requires_approval: bool = Field(
+        default=False,
+        description=(
+            "If true, bookings for this room always need admin approval, no matter how far out "
+            "they are or which area the booker belongs to — e.g. Hebrews (the barista shop add-on)."
+        ),
+    )
     active: bool = True
 
 
@@ -85,6 +93,7 @@ class RoomUpdate(BaseModel):
     booking_message: Optional[str] = None
     photo_urls: Optional[List[str]] = None
     photo_url: Optional[str] = None
+    always_requires_approval: Optional[bool] = None
     active: Optional[bool] = None
 
 
@@ -331,6 +340,25 @@ class Booking(BaseModel):
         so explicitly — otherwise `new Date(...)` on the frontend interprets
         the timezone-less string as local time instead of UTC.
         """
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
+
+
+class CalendarEntry(BaseModel):
+    """
+    Privacy-safe booking overview for the public booker-facing calendar —
+    just room/time/status, never requester name, congregation, email, or
+    phone. Use the full `Booking` model (via an authenticated/admin route)
+    for anything that needs the actual booking record.
+    """
+    room_name: str
+    start_time: datetime
+    end_time: datetime
+    status: BookingStatus
+
+    @field_serializer("start_time", "end_time")
+    def _serialize_as_utc(self, v: datetime) -> str:
         if v.tzinfo is None:
             v = v.replace(tzinfo=timezone.utc)
         return v.isoformat()

@@ -12,6 +12,13 @@ from app.rate_limit import limiter
 
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
+# Rooms of these types are exempt from the "oversized" size-block below —
+# they're already the smallest category on campus, so there's never a
+# smaller-but-sufficient alternative to steer someone toward.
+SMALL_ROOM_TYPES = {"classroom", "leap"}
+
+OVERSIZED_RATIO = 1.2  # more than 20% bigger than the best-fitting option = blocked
+
 
 def _room_out(doc: dict) -> Room:
     doc = dict(doc)
@@ -90,13 +97,24 @@ async def suggest_rooms(request: Request, req: RoomSuggestionRequest):
         *(_is_room_free(str(room["_id"]), req.start_time, req.end_time) for room in candidates)
     )
 
+    # The smallest capacity among rooms that actually fit the group — this is
+    # the "right-sized" reference point. A non-classroom room is only blocked
+    # as oversized if something closer to this reference exists; if the best
+    # fit already IS a big room (e.g. the group is too large for any
+    # classroom), that room stays selectable rather than everything getting
+    # blocked and leaving nothing bookable.
+    fitting_capacities = [room["capacity"] for room in candidates if room["capacity"] >= req.headcount]
+    best_fit_capacity = min(fitting_capacities) if fitting_capacities else None
+
     suggestions = []
     for room, free in zip(candidates, availability):
         room_out = _room_out(room)
 
         if room["capacity"] < req.headcount:
             fit = "too_small"
-        elif room["capacity"] > req.headcount * 2 and room["capacity"] > 40:
+        elif room["type"] in SMALL_ROOM_TYPES:
+            fit = "good_fit"
+        elif best_fit_capacity is not None and room["capacity"] > best_fit_capacity * OVERSIZED_RATIO:
             fit = "oversized"
         else:
             fit = "good_fit"

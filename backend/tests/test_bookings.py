@@ -96,6 +96,52 @@ async def test_booking_without_congregation_area_always_needs_approval(client, r
     assert resp.json()["status"] == "pending"
 
 
+async def test_room_level_approval_override_forces_pending(client, rooms_col, booker_headers, auto_approve_congregation):
+    """
+    A room flagged always_requires_approval (e.g. Hebrews, the barista shop
+    add-on) must need approval even for an otherwise auto-approve-eligible
+    booking — soon, opted-out area, not private.
+    """
+    room_id = await make_room(rooms_col, name="Hebrews", type="barista", always_requires_approval=True)
+    resp = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, congregation=auto_approve_congregation, start_offset_days=1),
+        headers=booker_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending"
+
+
+async def test_room_without_approval_override_still_auto_approves(client, rooms_col, booker_headers, auto_approve_congregation):
+    room_id = await make_room(rooms_col)
+    resp = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, congregation=auto_approve_congregation, start_offset_days=1),
+        headers=booker_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "approved"
+
+
+async def test_calendar_endpoint_omits_requester_details(client, rooms_col, booker_headers):
+    """
+    The booker-facing calendar must never leak requester name, congregation,
+    email, or phone — only room name, times, and status.
+    """
+    room_id = await make_room(rooms_col, name="Calendar Room")
+    created = await client.post(
+        "/api/bookings", json=booking_payload(room_id, requester_name="Secret Person"), headers=booker_headers
+    )
+    assert created.status_code == 200
+
+    resp = await client.get("/api/bookings/calendar")
+    assert resp.status_code == 200
+    entries = resp.json()
+    assert any(e["room_name"] == "Calendar Room" for e in entries)
+    for entry in entries:
+        assert set(entry.keys()) == {"room_name", "start_time", "end_time", "status"}
+
+
 async def test_booking_requires_login(client, rooms_col):
     room_id = await make_room(rooms_col)
     resp = await client.post("/api/bookings", json=booking_payload(room_id))

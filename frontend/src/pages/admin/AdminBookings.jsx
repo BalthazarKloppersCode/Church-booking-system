@@ -10,6 +10,47 @@ function toDatetimeLocalValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const SORT_OPTIONS = [
+  { value: 'start_time', label: 'Date booking is for' },
+  { value: 'created_at', label: 'Date booking was made' },
+  { value: 'congregation', label: 'Congregation' },
+];
+
+function sortBookings(bookings, sortKey, sortDir) {
+  const dir = sortDir === 'asc' ? 1 : -1;
+  return bookings.slice().sort((a, b) => {
+    if (sortKey === 'congregation') {
+      return a.congregation.localeCompare(b.congregation) * dir;
+    }
+    return (new Date(a[sortKey]) - new Date(b[sortKey])) * dir;
+  });
+}
+
+function SortBar({ sortKey, setSortKey, sortDir, setSortDir }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+      <label style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Sort by</label>
+      <select
+        value={sortKey}
+        onChange={(e) => setSortKey(e.target.value)}
+        style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8 }}
+      >
+        {SORT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn btn-secondary"
+        style={{ padding: '6px 12px', fontSize: 12 }}
+        onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+      >
+        {sortDir === 'asc' ? '↑ Oldest first' : '↓ Newest first'}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminBookings() {
   const [tab, setTab] = useState('all');
   const [bookings, setBookings] = useState(null);
@@ -20,6 +61,8 @@ export default function AdminBookings() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [error, setError] = useState('');
+  const [sortKey, setSortKey] = useState('start_time');
+  const [sortDir, setSortDir] = useState('desc');
 
   async function loadAll() {
     const [all, rms] = await Promise.all([api.listBookings({}), api.listRooms()]);
@@ -132,9 +175,11 @@ export default function AdminBookings() {
         ))}
       </div>
 
+      <SortBar sortKey={sortKey} setSortKey={setSortKey} sortDir={sortDir} setSortDir={setSortDir} />
+
       {tab === 'all' && (
         <BookingList
-          bookings={active}
+          bookings={bookings ? sortBookings(active, sortKey, sortDir) : []}
           bookingsLoaded={!!bookings}
           rooms={rooms}
           busyId={busyId}
@@ -154,7 +199,7 @@ export default function AdminBookings() {
 
       {tab === 'approvals' && (
         <ApprovalsTab
-          bookings={pending}
+          bookings={pending ? sortBookings(pending, sortKey, sortDir) : null}
           notes={notes}
           setNotes={setNotes}
           busyId={busyId}
@@ -164,7 +209,7 @@ export default function AdminBookings() {
 
       {tab === 'archive' && (
         <BookingList
-          bookings={archived}
+          bookings={bookings ? sortBookings(archived, sortKey, sortDir) : []}
           bookingsLoaded={!!bookings}
           rooms={rooms}
           busyId={busyId}
@@ -205,6 +250,7 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
             <p style={{ fontSize: 14 }}>{b.purpose}</p>
             {b.notes && <p style={{ fontSize: 13, fontStyle: 'italic' }}>Note: {b.notes}</p>}
             <p style={{ fontSize: 12 }}>{b.email} · {b.phone}</p>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Booked {new Date(b.created_at).toLocaleString()}</p>
 
             <input
               placeholder="Optional note to include in the response"
@@ -251,10 +297,7 @@ function BookingList({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {bookings.length === 0 && <p>{emptyText}</p>}
-      {bookings
-        .slice()
-        .sort((a, b) => new Date(b.start_time) - new Date(a.start_time))
-        .map((b) =>
+      {bookings.map((b) =>
           editingId === b.id ? (
             <div key={b.id} className="card">
               {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
@@ -339,6 +382,7 @@ function BookingList({
                 <p style={{ fontSize: 13 }}>
                   {b.requester_name} ({b.congregation}) · {b.headcount} people · {b.purpose}
                 </p>
+                <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Booked {new Date(b.created_at).toLocaleString()}</p>
               </div>
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                 {!readOnly && b.status === 'pending' && (
