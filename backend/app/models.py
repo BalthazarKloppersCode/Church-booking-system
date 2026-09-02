@@ -330,6 +330,10 @@ class Booking(BaseModel):
     status: BookingStatus
     admin_note: Optional[str] = None
     series_id: Optional[str] = None
+    google_event_id: Optional[str] = Field(
+        default=None,
+        description="Id of this booking's event on the synced Google Calendar, once pushed. Internal bookkeeping.",
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -356,6 +360,24 @@ class CalendarEntry(BaseModel):
     start_time: datetime
     end_time: datetime
     status: BookingStatus
+
+    @field_serializer("start_time", "end_time")
+    def _serialize_as_utc(self, v: datetime) -> str:
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
+
+
+class ExternalCalendarEvent(BaseModel):
+    """
+    An event already on the synced Google Calendar that didn't come from a
+    booking in this app (existing church events, services, etc.) — lets the
+    booker/admin calendar views show them alongside real bookings. Only
+    title/time, matching CalendarEntry's privacy stance.
+    """
+    title: str
+    start_time: datetime
+    end_time: datetime
 
     @field_serializer("start_time", "end_time")
     def _serialize_as_utc(self, v: datetime) -> str:

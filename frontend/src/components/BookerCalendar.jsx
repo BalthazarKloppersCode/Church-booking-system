@@ -19,6 +19,7 @@ const localizer = dateFnsLocalizer({
 const STATUS_COLOR = {
   approved: '#1B3A6C',
   pending: '#C98A2C',
+  external: '#5B6259',
 };
 
 function pad(n) {
@@ -40,22 +41,36 @@ export default function BookerCalendar({ onPick, onClose }) {
     const now = new Date();
     const start_after = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString();
     const start_before = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 90).toISOString();
-    api
-      .listBookingsCalendar({ start_after, start_before })
-      .then((entries) => {
-        setEvents(
-          entries.map((e, i) => {
-            const start = new Date(e.start_time);
-            const end = new Date(e.end_time);
-            return {
-              id: i,
-              title: `${e.room_name} (${fmtTime(start)}–${fmtTime(end)})`,
-              start,
-              end,
-              status: e.status,
-            };
-          })
-        );
+    Promise.all([
+      api.listBookingsCalendar({ start_after, start_before }),
+      // Falls back to [] on its own if the church Google Calendar isn't
+      // connected — never blocks the booking calendar from loading.
+      api.listExternalCalendarEvents({ start_after, start_before }).catch(() => []),
+    ])
+      .then(([entries, externalEvents]) => {
+        const bookingEvents = entries.map((e, i) => {
+          const start = new Date(e.start_time);
+          const end = new Date(e.end_time);
+          return {
+            id: `booking-${i}`,
+            title: `${e.room_name} (${fmtTime(start)}–${fmtTime(end)})`,
+            start,
+            end,
+            status: e.status,
+          };
+        });
+        const churchEvents = externalEvents.map((e, i) => {
+          const start = new Date(e.start_time);
+          const end = new Date(e.end_time);
+          return {
+            id: `external-${i}`,
+            title: `${e.title} (church calendar)`,
+            start,
+            end,
+            status: 'external',
+          };
+        });
+        setEvents([...bookingEvents, ...churchEvents]);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -97,7 +112,7 @@ export default function BookerCalendar({ onPick, onClose }) {
         </div>
         <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
           Blank hours are free. Tap an hour to pick that date and time — it'll take you back to the
-          booking form with it filled in.
+          booking form with it filled in. Grey blocks are events already on the church calendar.
         </p>
         {loading ? (
           <p>Loading calendar…</p>

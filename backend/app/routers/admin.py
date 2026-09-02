@@ -29,6 +29,7 @@ from app.models import (
     RecurrenceRule,
     Token,
 )
+from app import calendar_sync
 from app.notifications import notify_booking_confirmed, notify_booking_decision
 from app.rate_limit import limiter
 from app.routers.bookings import _booking_out
@@ -160,6 +161,7 @@ async def approve_booking(
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])})
     background_tasks.add_task(notify_booking_decision, updated, room, approved=True)
+    background_tasks.add_task(calendar_sync.sync_created, updated, room["name"])
     return _booking_out(updated)
 
 
@@ -187,6 +189,10 @@ async def reject_booking(
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])})
     background_tasks.add_task(notify_booking_decision, updated, room, approved=False)
+    # Rejecting only ever happens from "pending", which never had a Google
+    # event yet — but defensively clear one if it's somehow already there.
+    if booking.get("google_event_id"):
+        background_tasks.add_task(calendar_sync.sync_removed, updated)
     return _booking_out(updated)
 
 
@@ -257,6 +263,7 @@ async def admin_create_booking(
     created_docs = [{**doc, "_id": _id} for doc, _id in zip(docs, result.inserted_ids)]
 
     background_tasks.add_task(notify_booking_confirmed, created_docs[0], room)
+    background_tasks.add_task(calendar_sync.sync_created_many, created_docs, room["name"])
 
     return {
         "created_count": len(created_docs),
@@ -266,7 +273,7 @@ async def admin_create_booking(
 
 
 @router.post("/bookings/{booking_id}/cancel", response_model=Booking)
-async def admin_cancel_booking(booking_id: str, admin=Depends(get_current_admin)):
+async def admin_cancel_booking(booking_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     if not booking:
         raise HTTPException(404, "Booking not found")
@@ -275,12 +282,13 @@ async def admin_cancel_booking(booking_id: str, admin=Depends(get_current_admin)
         {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
     )
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    background_tasks.add_task(calendar_sync.sync_removed, booking)
     return _booking_out(updated)
 
 
 @router.patch("/bookings/{booking_id}", response_model=Booking)
 async def admin_update_booking(
-    booking_id: str, payload: AdminBookingUpdate, admin=Depends(get_current_admin)
+    booking_id: str, payload: AdminBookingUpdate, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)
 ):
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     if not booking:
@@ -299,19 +307,42 @@ async def admin_update_booking(
         update_data["updated_at"] = datetime.utcnow()
         await bookings_collection.update_one({"_id": ObjectId(booking_id)}, {"$set": update_data})
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+
+    # Keep the Google Calendar event in step with whatever changed —
+    # removed if the booking is no longer live, created/updated otherwise.
+    if update_data:
+        if updated["status"] in (BookingStatus.cancelled.value, BookingStatus.rejected.value):
+            background_tasks.add_task(calendar_sync.sync_removed, updated)
+        elif updated["status"] == BookingStatus.approved.value:
+            background_tasks.add_task(calendar_sync.sync_updated, updated, updated["room_name"])
+
     return _booking_out(updated)
 
 
 @router.delete("/bookings/{booking_id}")
-async def admin_delete_booking(booking_id: str, admin=Depends(get_current_admin)):
-    result = await bookings_collection.delete_one({"_id": ObjectId(booking_id)})
-    if result.deleted_count == 0:
+async def admin_delete_booking(booking_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    if not booking:
         raise HTTPException(404, "Booking not found")
+    await bookings_collection.delete_one({"_id": ObjectId(booking_id)})
+    background_tasks.add_task(calendar_sync.sync_removed, booking)
     return {"ok": True}
 
 
 @router.post("/bookings/series/{series_id}/cancel")
-async def admin_cancel_series(series_id: str, admin=Depends(get_current_admin)):
+async def admin_cancel_series(series_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+    # Snapshot which bookings had a synced Google event *before* the bulk
+    # update, since that's the only place their google_event_id is visible.
+    to_unsync = [
+        b
+        async for b in bookings_collection.find(
+            {
+                "series_id": series_id,
+                "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
+                "google_event_id": {"$ne": None},
+            }
+        )
+    ]
     result = await bookings_collection.update_many(
         {
             "series_id": series_id,
@@ -319,6 +350,7 @@ async def admin_cancel_series(series_id: str, admin=Depends(get_current_admin)):
         },
         {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
     )
+    background_tasks.add_task(calendar_sync.sync_removed_many, to_unsync)
     return {"cancelled_count": result.modified_count}
 
 

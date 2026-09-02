@@ -4,10 +4,11 @@ from typing import List, Optional
 from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
+from app import calendar_sync, google_calendar
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
 from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
-from app.models import Booking, BookingCreate, BookingStatus, CalendarEntry
+from app.models import Booking, BookingCreate, BookingStatus, CalendarEntry, ExternalCalendarEvent
 from app.notifications import (
     notify_booking_confirmed,
     notify_booking_pending,
@@ -105,6 +106,7 @@ async def create_booking(
         background_tasks.add_task(notify_admin_new_request, created, room)
     else:
         background_tasks.add_task(notify_booking_confirmed, created, room)
+        background_tasks.add_task(calendar_sync.sync_created, created, room["name"])
 
     return booking_out
 
@@ -175,9 +177,28 @@ async def list_bookings_calendar(
     ]
 
 
+@router.get("/calendar/external", response_model=List[ExternalCalendarEvent])
+async def list_external_calendar_events(
+    start_after: Optional[datetime] = None,
+    start_before: Optional[datetime] = None,
+):
+    """
+    Events already on the synced church Google Calendar that didn't come
+    from a booking made in this app — lets the booker/admin calendar views
+    show existing church events (services, etc.) alongside real bookings,
+    without duplicating the ones this app already pushed there itself.
+    Returns an empty list if Google Calendar sync isn't configured.
+    """
+    now = datetime.utcnow()
+    start = start_after or (now - timedelta(days=7))
+    end = start_before or (now + timedelta(days=90))
+    events = await google_calendar.list_external_events(start, end)
+    return [ExternalCalendarEvent(**e) for e in events]
+
+
 @router.post("/{booking_id}/cancel", response_model=Booking)
 @limiter.limit("20/minute")
-async def cancel_booking(request: Request, booking_id: str, email: str):
+async def cancel_booking(request: Request, booking_id: str, email: str, background_tasks: BackgroundTasks):
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
     if not booking:
         raise HTTPException(404, "Booking not found")
@@ -189,4 +210,5 @@ async def cancel_booking(request: Request, booking_id: str, email: str):
         {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
     )
     updated = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+    background_tasks.add_task(calendar_sync.sync_removed, booking)
     return _booking_out(updated)

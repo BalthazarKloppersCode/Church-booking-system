@@ -90,6 +90,10 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/bookings/calendar${qs ? `?${qs}` : ''}`);
   },
+  listExternalCalendarEvents: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/api/bookings/calendar/external${qs ? `?${qs}` : ''}`);
+  },
 
   // Admin
   adminRegister: (payload) =>

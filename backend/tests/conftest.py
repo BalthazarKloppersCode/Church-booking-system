@@ -14,6 +14,7 @@ async def app_state(monkeypatch):
     for production traffic don't bleed across test cases.
     """
     from app import auth as auth_module
+    from app import calendar_sync as calendar_sync_module
     from app import database as db_module
     from app.config import settings
     from app.rate_limit import limiter
@@ -43,6 +44,7 @@ async def app_state(monkeypatch):
         areas_router,
         users_router,
         booker_auth_router,
+        calendar_sync_module,
     )
     for module in modules:
         if hasattr(module, "rooms_collection"):

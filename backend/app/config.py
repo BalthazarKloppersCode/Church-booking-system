@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     whatsapp_phone_number_id: str = ""
     whatsapp_access_token: str = ""
 
+    # Google Calendar two-way sync (e.g. "LINKTREE Durbanville AM Events").
+    # google_service_account_json is the *contents* of a Google service
+    # account key file (paste the whole JSON as one line), not a file path —
+    # share the target calendar with that service account's email, with
+    # "Make changes to events" permission. Leave blank to disable sync
+    # entirely (every call becomes a no-op, same as the email/WhatsApp keys).
+    google_service_account_json: str = ""
+    google_calendar_id: str = ""
+
     admin_notify_email: str = ""
     admin_notify_whatsapp: str = ""
 

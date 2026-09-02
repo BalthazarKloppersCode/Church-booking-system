@@ -19,6 +19,7 @@ const localizer = dateFnsLocalizer({
 const STATUS_COLOR = {
   approved: '#1B3A6C',
   pending: '#C98A2C',
+  external: '#5B6259',
 };
 
 const REPEAT_OPTIONS = [
@@ -88,21 +89,31 @@ export default function AdminCalendar() {
   }, []);
 
   useEffect(() => {
-    api
-      .listBookings(roomFilter ? { room_id: roomFilter } : {})
-      .then((bookings) => {
-        const filtered = bookings.filter((b) => b.status === 'approved' || b.status === 'pending');
-        setEvents(
-          filtered.map((b) => ({
-            id: b.id,
-            title: `${b.room_name} — ${b.congregation} (${b.headcount})`,
-            start: new Date(b.start_time),
-            end: new Date(b.end_time),
-            status: b.status,
-            booking: b,
-          }))
-        );
-      });
+    Promise.all([
+      api.listBookings(roomFilter ? { room_id: roomFilter } : {}),
+      // Only shown when no room filter is set — external church-calendar
+      // events aren't tied to a specific bookable room.
+      roomFilter ? Promise.resolve([]) : api.listExternalCalendarEvents().catch(() => []),
+    ]).then(([bookings, externalEvents]) => {
+      const filtered = bookings.filter((b) => b.status === 'approved' || b.status === 'pending');
+      const bookingEvents = filtered.map((b) => ({
+        id: b.id,
+        title: `${b.room_name} — ${b.congregation} (${b.headcount})`,
+        start: new Date(b.start_time),
+        end: new Date(b.end_time),
+        status: b.status,
+        booking: b,
+      }));
+      const churchEvents = externalEvents.map((e, i) => ({
+        id: `external-${i}`,
+        title: `${e.title} (church calendar)`,
+        start: new Date(e.start_time),
+        end: new Date(e.end_time),
+        status: 'external',
+        booking: null,
+      }));
+      setEvents([...bookingEvents, ...churchEvents]);
+    });
   }, [roomFilter, refreshKey]);
 
   const eventStyleGetter = useMemo(
@@ -134,6 +145,7 @@ export default function AdminCalendar() {
       <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
         Click and drag on an empty slot to add a booking directly — admin-created bookings are
         confirmed instantly and can repeat weekly, every 2 weeks, or monthly.
+        {!roomFilter && ' Grey blocks are events already on the church Google Calendar.'}
       </p>
       <div className="card" style={{ padding: 16 }}>
         <Calendar
@@ -145,7 +157,9 @@ export default function AdminCalendar() {
           eventPropGetter={eventStyleGetter}
           selectable
           onSelectSlot={(slotInfo) => setNewBookingSlot({ start: slotInfo.start, end: slotInfo.end })}
-          onSelectEvent={(event) => setSelectedEvent(event.booking)}
+          onSelectEvent={(event) => {
+            if (event.booking) setSelectedEvent(event.booking);
+          }}
         />
       </div>
 
