@@ -32,7 +32,7 @@ function fmtTime(d) {
 // Bookers only ever see room + timeslot here — never who booked it or why.
 // Fetched separately from the admin calendar's data source (a lean,
 // privacy-safe endpoint) rather than reusing the full booking record.
-export default function BookerCalendar({ onPick }) {
+export default function BookerCalendar({ onPick, onClose }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,28 +73,52 @@ export default function BookerCalendar({ onPick }) {
   );
 
   return (
-    <div>
-      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
-        Grey/blank slots are free. Click and drag on an empty slot to pick your date and time —
-        it'll fill in the search above.
-      </p>
-      {loading ? (
-        <p>Loading calendar…</p>
-      ) : (
-        <Calendar
-          localizer={localizer}
-          events={events}
-          startAccessor="start"
-          endAccessor="end"
-          defaultView="week"
-          views={['week', 'day']}
-          style={{ height: 500 }}
-          eventPropGetter={eventStyleGetter}
-          selectable
-          onSelectSlot={(slotInfo) => onPick(slotInfo.start, slotInfo.end)}
-          onSelectEvent={() => {}}
-        />
-      )}
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(18,41,77,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{ width: '100%', maxWidth: 920, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>Browse the calendar</h3>
+          <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px' }} onClick={onClose}>✕</button>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
+          Blank hours are free. Tap an hour to pick that date and time — it'll take you back to the
+          booking form with it filled in.
+        </p>
+        {loading ? (
+          <p>Loading calendar…</p>
+        ) : (
+          <Calendar
+            localizer={localizer}
+            events={events}
+            startAccessor="start"
+            endAccessor="end"
+            defaultView="week"
+            views={['week', 'day']}
+            step={60}
+            timeslots={1}
+            style={{ flex: 1, minHeight: 0 }}
+            eventPropGetter={eventStyleGetter}
+            selectable
+            onSelectSlot={(slotInfo) => onPick(slotInfo.start, slotInfo.end)}
+            onSelectEvent={() => {}}
+          />
+        )}
+      </div>
     </div>
   );
 }

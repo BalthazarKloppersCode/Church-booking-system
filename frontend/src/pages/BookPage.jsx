@@ -475,11 +475,20 @@ export default function BookPage() {
       )}
 
       {step === 1 && showCalendar && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <Suspense fallback={<p>Loading calendar…</p>}>
-            <BookerCalendar onPick={handlePickFromCalendar} />
-          </Suspense>
-        </div>
+        <Suspense
+          fallback={
+            <div
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(18,41,77,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+              }}
+            >
+              <p style={{ color: '#fff' }}>Loading calendar…</p>
+            </div>
+          }
+        >
+          <BookerCalendar onPick={handlePickFromCalendar} onClose={() => setShowCalendar(false)} />
+        </Suspense>
       )}
 
       {step === 2 && (
