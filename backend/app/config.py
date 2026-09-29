@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     resend_api_key: str = ""
     email_from: str = "bookings@yourchurch.org"
+    email_from_name: str = "Pinehurst Campus Bookings"
 
     whatsapp_phone_number_id: str = ""
     whatsapp_access_token: str = ""
