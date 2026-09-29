@@ -23,10 +23,16 @@ services:
         sync: false
       - key: AUTO_APPROVE_WINDOW_DAYS
         value: "14"
-      - key: RESEND_API_KEY
-        sync: false
       - key: EMAIL_FROM
-        value: bookings@yourchurch.org
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: Pinehurst Campus Bookings
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
       - key: WHATSAPP_PHONE_NUMBER_ID
         sync: false
       - key: WHATSAPP_ACCESS_TOKEN

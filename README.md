@@ -8,7 +8,7 @@ admin portal for approvals, a room grid ("top view"), and a calendar.
   → go to the **admin approval queue**
 - Booker enters headcount → system suggests rooms that fit
 - Confirmations include the room's "leave it like this" setup notes
-- Notifications sent by **email** (Resend) and **WhatsApp** (Meta Cloud API)
+- Notifications sent by **email** (the church's Gmail account, via SMTP) and **WhatsApp** (Meta Cloud API)
 
 ## Stack
 
@@ -26,7 +26,7 @@ backend/
     database.py          Mongo connection + indexes
     models.py            Pydantic schemas
     auth.py               Admin password hashing + JWT
-    notifications.py      Email (Resend) + WhatsApp (Meta Cloud API) senders
+    notifications.py      Email (Gmail SMTP) + WhatsApp (Meta Cloud API) senders
     routers/
       rooms.py            Room CRUD + /suggest (capacity-based matching)
       bookings.py         Create/list/cancel bookings, auto-approve logic
@@ -62,7 +62,7 @@ frontend/
 | Database | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) | M0 cluster, 512MB |
 | Backend | [Render](https://render.com) | Free web service (sleeps after 15 min idle — first request after that takes ~30s to wake up) |
 | Frontend | [Vercel](https://vercel.com) | Free static hosting |
-| Email | [Resend](https://resend.com) | 3,000 emails/month |
+| Email | Gmail SMTP (church's own account) | Free, ~500 emails/day |
 | WhatsApp | [Meta WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) | 1,000 service conversations/month |
 
 ## Setup
@@ -99,9 +99,10 @@ npm install
 npm run dev
 ```
 
-### 4. Email (Resend)
-1. Sign up at resend.com, verify a sending domain (or use their test domain while developing).
-2. Put the API key in `backend/.env` as `RESEND_API_KEY`, and set `EMAIL_FROM`.
+### 4. Email (Gmail SMTP)
+1. On the church's Gmail account: turn on 2-Step Verification (Google Account -> Security).
+2. Google Account -> Security -> 2-Step Verification -> App passwords -> create one for "Room Booking System". Copy the 16-character code.
+3. Put them in `backend/.env` as `EMAIL_FROM` (the Gmail address) and `EMAIL_PASSWORD` (the App password — not the account's normal login password).
 
 ### 5. WhatsApp (Meta Cloud API)
 1. Create a Meta Business account and a WhatsApp Business app at developers.facebook.com.

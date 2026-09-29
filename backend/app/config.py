@@ -20,9 +20,16 @@ class Settings(BaseSettings):
 
     auto_approve_window_days: int = 14
 
-    resend_api_key: str = ""
+    # Sends via the church's real Gmail account over SMTP, authenticated
+    # with a Google App Password (not the account's normal login password —
+    # requires 2-Step Verification to be turned on first). email_from is
+    # that Gmail address and also the SMTP login username; email_from_name
+    # is just the friendly display name recipients see.
     email_from: str = "bookings@yourchurch.org"
     email_from_name: str = "Pinehurst Campus Bookings"
+    email_password: str = ""
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
 
     whatsapp_phone_number_id: str = ""
     whatsapp_access_token: str = ""

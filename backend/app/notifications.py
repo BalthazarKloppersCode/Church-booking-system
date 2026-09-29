@@ -1,12 +1,14 @@
 """
-Sends booking confirmations, approval requests, and status updates
-via email (Resend) and WhatsApp (Meta Cloud API).
+Sends booking confirmations, approval requests, and status updates via
+email (the church's own Gmail account, over SMTP) and WhatsApp (Meta Cloud
+API).
 
-Both providers are free at the volume a single church campus will use:
-- Resend free tier: 3,000 emails/month
-- Meta WhatsApp Cloud API: 1,000 free service conversations/month
+Meta WhatsApp Cloud API is free at the volume a single church campus will
+use: 1,000 free service conversations/month. Gmail SMTP has no per-email
+cost but a rough daily send cap (~500/day on a regular Gmail account,
+~2,000/day on Google Workspace) — plenty for this volume.
 
-If API keys are not set in .env, calls are skipped and logged instead of
+If credentials are not set in .env, calls are skipped and logged instead of
 raising errors, so the booking flow still works during setup/testing.
 
 Emails are sent as HTML (branded to match the frontend's teal/amber look,
@@ -14,12 +16,12 @@ using web-safe font stacks since email clients don't reliably load web
 fonts) with a plain-text fallback for clients/spam filters that prefer it.
 """
 import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 import httpx
-import resend
 from app.config import settings
-
-resend.api_key = settings.resend_api_key
 
 BRAND = {
     "teal": "#1B3A6C",
@@ -133,24 +135,32 @@ Questions about this booking? Contact the admin office.
 </html>"""
 
 
-async def send_email(to: str, subject: str, text_body: str, html_body: str | None = None):
-    if not settings.resend_api_key:
-        print(f"[email skipped - no RESEND_API_KEY] to={to} subject={subject}")
-        return
-    from_header = f"{settings.email_from_name} <{settings.email_from}>" if settings.email_from_name else settings.email_from
-    payload = {
-        "from": from_header,
-        "to": [to],
-        "subject": subject,
-        "text": text_body,
-    }
+def _send_email_sync(to: str, subject: str, text_body: str, html_body: str | None) -> None:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{settings.email_from_name} <{settings.email_from}>" if settings.email_from_name else settings.email_from
+    msg["To"] = to
+    # Attach the plain-text part first, HTML last — for "alternative" MIME,
+    # clients render the last part they understand, so HTML wins where
+    # supported and plain text remains the fallback everywhere else.
+    msg.attach(MIMEText(text_body, "plain"))
     if html_body:
-        payload["html"] = html_body
+        msg.attach(MIMEText(html_body, "html"))
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+        server.starttls()
+        server.login(settings.email_from, settings.email_password)
+        server.sendmail(settings.email_from, [to], msg.as_string())
+
+
+async def send_email(to: str, subject: str, text_body: str, html_body: str | None = None):
+    if not settings.email_from or not settings.email_password:
+        print(f"[email skipped - no EMAIL_FROM/EMAIL_PASSWORD] to={to} subject={subject}")
+        return
     try:
-        # resend's SDK is a blocking/sync HTTP call — running it directly in
-        # an async function would stall the whole event loop (every other
-        # concurrent request) for the round-trip. Push it to a thread instead.
-        await asyncio.to_thread(resend.Emails.send, payload)
+        # smtplib is blocking — running it directly in an async function
+        # would stall the whole event loop (every other concurrent request)
+        # for the round-trip. Push it to a thread instead.
+        await asyncio.to_thread(_send_email_sync, to, subject, text_body, html_body)
     except Exception as e:
         print(f"[email error] {e}")
 
