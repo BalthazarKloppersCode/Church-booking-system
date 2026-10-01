@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import { formatTimeRange } from '../../lib/formatDate';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -68,10 +69,7 @@ export default function AdminRoomGrid() {
                         background: b.status === 'pending' ? 'var(--amber-tint)' : 'var(--teal-tint)',
                       }}
                     >
-                      <strong>
-                        {new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–
-                        {new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </strong>{' '}
+                      <strong>{formatTimeRange(b.start_time, b.end_time)}</strong>{' '}
                       {b.congregation}
                       {b.status === 'pending' ? ' (pending)' : ''}
                     </div>

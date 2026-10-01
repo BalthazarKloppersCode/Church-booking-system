@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { formatDay, formatTimeRange } from '../lib/formatDate';
 
 export default function MyBookingsPage() {
   const [email, setEmail] = useState('');
@@ -65,7 +66,7 @@ export default function MyBookingsPage() {
               <div>
                 <h3 style={{ fontSize: 17 }}>{b.room_name}</h3>
                 <p style={{ fontSize: 13 }}>
-                  {new Date(b.start_time).toLocaleString()} – {new Date(b.end_time).toLocaleTimeString()}
+                  {formatDay(b.start_time)} · {formatTimeRange(b.start_time, b.end_time)}
                 </p>
                 <p style={{ fontSize: 13 }}>{b.purpose}</p>
               </div>

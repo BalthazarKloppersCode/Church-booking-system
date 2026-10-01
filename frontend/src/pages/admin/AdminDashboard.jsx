@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import AdminAnalyticsCharts from './AdminAnalyticsCharts';
+import { formatDay, formatTime } from '../../lib/formatDate';
 
 const EMPTY_FILTER = {
   dateMode: '', // '', 'after', 'before', 'between'
@@ -245,7 +246,7 @@ export default function AdminDashboard() {
                 <div>
                   <strong>{b.room_name}</strong> — {b.congregation}
                   <p style={{ fontSize: 13 }}>
-                    {new Date(b.start_time).toLocaleString()} · {b.headcount} people · {b.purpose}
+                    {formatDay(b.start_time)}, {formatTime(b.start_time)} · {b.headcount} people · {b.purpose}
                   </p>
                 </div>
                 <span className={`badge badge-${b.status}`}>{b.status}</span>
@@ -262,7 +263,7 @@ export default function AdminDashboard() {
               <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <div>
                   <strong>{b.room_name}</strong> — {b.congregation}
-                  <p style={{ fontSize: 13 }}>{new Date(b.start_time).toLocaleString()}</p>
+                  <p style={{ fontSize: 13 }}>{formatDay(b.start_time)}, {formatTime(b.start_time)}</p>
                 </div>
                 <span className="badge badge-approved">{b.headcount} people</span>
               </div>

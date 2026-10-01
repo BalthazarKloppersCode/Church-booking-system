@@ -7,6 +7,7 @@ import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { api } from '../../lib/api';
+import { formatDay, formatTimeRange } from '../../lib/formatDate';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -445,7 +446,7 @@ function EventDetailModal({ booking, onClose, onChanged }) {
         <strong>{booking.congregation}</strong> · {booking.headcount} people
       </p>
       <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 4 }}>
-        {new Date(booking.start_time).toLocaleString()} – {new Date(booking.end_time).toLocaleTimeString()}
+        {formatDay(booking.start_time)} · {formatTimeRange(booking.start_time, booking.end_time)}
       </p>
       <p style={{ fontSize: 13, marginBottom: 4 }}>{booking.purpose}{booking.purpose_other ? `: ${booking.purpose_other}` : ''}</p>
       <p style={{ fontSize: 13, marginBottom: 16 }}>

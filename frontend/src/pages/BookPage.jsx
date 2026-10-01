@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import BuildingMap from '../components/BuildingMap';
+import { formatDay, formatSlot } from '../lib/formatDate';
 
 // Pulls in react-big-calendar/date-fns — its own lazy chunk so the default
 // booking flow doesn't pay for it unless someone actually opens the calendar.
@@ -495,7 +496,7 @@ export default function BookPage() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 12 }}>
             <p style={{ margin: 0 }}>
-              Rooms that fit {search.headcount} people on {search.date} from {search.startTime}–{search.endTime}:
+              Rooms that fit {search.headcount} people on {formatDay(`${search.date}T00:00:00`)}, {search.startTime}–{search.endTime}:
             </p>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button
@@ -750,7 +751,7 @@ export default function BookPage() {
               <span className="badge badge-approved" style={{ marginBottom: 12 }}>Confirmed</span>
               <h3>You're all set.</h3>
               <p>
-                {result.room_name} is booked for {new Date(result.start_time).toLocaleString()}.
+                {result.room_name} is booked for {formatSlot(result.start_time, result.end_time)}.
                 A confirmation with room setup instructions has been sent to your email and WhatsApp.
               </p>
             </>

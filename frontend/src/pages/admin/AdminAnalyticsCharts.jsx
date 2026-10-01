@@ -10,6 +10,14 @@ import {
   Legend,
 } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
+import { formatDateRange } from '../../lib/formatDate';
+
+function weekLabel(weekStartIso) {
+  const start = new Date(`${weekStartIso}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return formatDateRange(start, end);
+}
 
 ChartJS.register(
   CategoryScale,
@@ -97,7 +105,7 @@ export default function AdminAnalyticsCharts({ data }) {
         ) : (
           <Line
             data={{
-              labels: data.weekly.map((w) => w.week_start),
+              labels: data.weekly.map((w) => weekLabel(w.week_start)),
               datasets: [
                 {
                   label: 'Bookings',

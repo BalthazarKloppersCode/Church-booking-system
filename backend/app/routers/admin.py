@@ -30,6 +30,7 @@ from app.models import (
     Token,
 )
 from app import calendar_sync
+from app.date_format import format_day
 from app.notifications import notify_booking_confirmed, notify_booking_decision
 from app.rate_limit import limiter
 from app.routers.bookings import _booking_out
@@ -230,7 +231,7 @@ async def admin_create_booking(
         *(_is_room_free(payload.room_id, start, end) for start, end in occurrences)
     )
     conflicts = [
-        start.strftime("%Y-%m-%d")
+        format_day(start)
         for (start, end), free in zip(occurrences, is_free)
         if not free
     ]

@@ -22,6 +22,7 @@ from email.mime.text import MIMEText
 
 import httpx
 from app.config import settings
+from app.date_format import format_day_long, format_day_short, format_time, format_time_range
 
 BRAND = {
     "teal": "#1B3A6C",
@@ -187,12 +188,12 @@ async def send_whatsapp(to_phone: str, message: str):
 
 
 async def notify_booking_confirmed(booking: dict, room: dict):
-    subject = f"Booking confirmed: {room['name']} on {booking['start_time'].strftime('%d %b %Y, %H:%M')}"
+    subject = f"Booking confirmed: {room['name']} on {format_day_short(booking['start_time'])}, {format_time(booking['start_time'])}"
     body = (
         f"Hi {booking['requester_name']},\n\n"
         f"Your booking for {room['name']} is confirmed.\n\n"
-        f"Date: {booking['start_time'].strftime('%A, %d %B %Y')}\n"
-        f"Time: {booking['start_time'].strftime('%H:%M')} - {booking['end_time'].strftime('%H:%M')}\n"
+        f"Date: {format_day_long(booking['start_time'])}\n"
+        f"Time: {format_time_range(booking['start_time'], booking['end_time'])}\n"
         f"Expected attendance: {booking['headcount']}\n"
         f"Purpose: {booking['purpose']}"
         f"{_room_setup_block(room['name'], room.get('setup_notes'))}"
@@ -207,8 +208,8 @@ async def notify_booking_confirmed(booking: dict, room: dict):
             _detail_rows_html(
                 [
                     ("Room", room["name"]),
-                    ("Date", booking["start_time"].strftime("%A, %d %B %Y")),
-                    ("Time", f"{booking['start_time'].strftime('%H:%M')} – {booking['end_time'].strftime('%H:%M')}"),
+                    ("Date", format_day_long(booking["start_time"])),
+                    ("Time", format_time_range(booking["start_time"], booking["end_time"])),
                     ("Attendance", str(booking["headcount"])),
                     ("Purpose", booking["purpose"]),
                 ]
@@ -226,7 +227,7 @@ async def notify_booking_pending(booking: dict, room: dict):
     body = (
         f"Hi {booking['requester_name']},\n\n"
         f"We received your request to book {room['name']} on "
-        f"{booking['start_time'].strftime('%A, %d %B %Y')} at {booking['start_time'].strftime('%H:%M')}.\n\n"
+        f"{format_day_long(booking['start_time'])} at {format_time(booking['start_time'])}.\n\n"
         f"This booking needs admin approval "
         f"({'private event' if booking['is_private_event'] else 'more than 2 weeks in advance'}). "
         f"We'll let you know as soon as it's reviewed."
@@ -240,8 +241,8 @@ async def notify_booking_pending(booking: dict, room: dict):
             _detail_rows_html(
                 [
                     ("Room", room["name"]),
-                    ("Date", booking["start_time"].strftime("%A, %d %B %Y")),
-                    ("Time", f"{booking['start_time'].strftime('%H:%M')} – {booking['end_time'].strftime('%H:%M')}"),
+                    ("Date", format_day_long(booking["start_time"])),
+                    ("Time", format_time_range(booking["start_time"], booking["end_time"])),
                 ]
             )
             + f'<p style="font-size:13px;color:{BRAND["ink_soft"]};line-height:1.6;margin:20px 0 0;">'
@@ -259,7 +260,7 @@ async def notify_booking_decision(booking: dict, room: dict, approved: bool):
     body = (
         f"Hi {booking['requester_name']},\n\n"
         f"Unfortunately your request to book {room['name']} on "
-        f"{booking['start_time'].strftime('%A, %d %B %Y')} was not approved."
+        f"{format_day_long(booking['start_time'])} was not approved."
     )
     if booking.get("admin_note"):
         body += f"\n\nNote from admin: {booking['admin_note']}"
@@ -279,7 +280,7 @@ async def notify_booking_decision(booking: dict, room: dict, approved: bool):
             _detail_rows_html(
                 [
                     ("Room", room["name"]),
-                    ("Date", booking["start_time"].strftime("%A, %d %B %Y")),
+                    ("Date", format_day_long(booking["start_time"])),
                 ]
             )
             + note_html
@@ -294,7 +295,7 @@ async def notify_admin_new_request(booking: dict, room: dict):
     subject = f"New booking needs approval: {room['name']}"
     body = (
         f"{booking['requester_name']} ({booking['congregation']}) requested {room['name']} "
-        f"on {booking['start_time'].strftime('%d %b %Y, %H:%M')} "
+        f"on {format_day_short(booking['start_time'])}, {format_time(booking['start_time'])} "
         f"for {booking['headcount']} people.\n"
         f"Reason: {booking['purpose']}\n"
         f"{'This is a private event.' if booking['is_private_event'] else ''}\n\n"
@@ -308,8 +309,8 @@ async def notify_admin_new_request(booking: dict, room: dict):
             _detail_rows_html(
                 [
                     ("Room", room["name"]),
-                    ("Date", booking["start_time"].strftime("%A, %d %B %Y")),
-                    ("Time", booking["start_time"].strftime("%H:%M")),
+                    ("Date", format_day_long(booking["start_time"])),
+                    ("Time", format_time(booking["start_time"])),
                     ("Attendance", str(booking["headcount"])),
                     ("Purpose", booking["purpose"]),
                 ]

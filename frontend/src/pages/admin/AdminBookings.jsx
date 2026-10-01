@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import { formatDay, formatDayLong, formatRelative, formatTimeRange } from '../../lib/formatDate';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -239,7 +240,7 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
               <div>
                 <h3 style={{ fontSize: 17 }}>{b.room_name}</h3>
                 <p style={{ fontSize: 13 }}>
-                  {new Date(b.start_time).toLocaleString()} – {new Date(b.end_time).toLocaleTimeString()}
+                  {formatDay(b.start_time)} · {formatTimeRange(b.start_time, b.end_time)}
                 </p>
               </div>
               {b.is_private_event && <span className="badge badge-pending">Private event</span>}
@@ -250,7 +251,9 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
             <p style={{ fontSize: 14 }}>{b.purpose}</p>
             {b.notes && <p style={{ fontSize: 13, fontStyle: 'italic' }}>Note: {b.notes}</p>}
             <p style={{ fontSize: 12 }}>{b.email} · {b.phone}</p>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Booked {new Date(b.created_at).toLocaleString()}</p>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)' }} title={formatDayLong(b.created_at)}>
+              Requested {formatRelative(b.created_at)}
+            </p>
 
             <input
               placeholder="Optional note to include in the response"
@@ -377,12 +380,14 @@ function BookingList({
                   <span className={`badge badge-${b.status}`}>{b.status}</span>
                 </div>
                 <p style={{ fontSize: 13 }}>
-                  {new Date(b.start_time).toLocaleString()} – {new Date(b.end_time).toLocaleTimeString()}
+                  {formatDay(b.start_time)} · {formatTimeRange(b.start_time, b.end_time)}
                 </p>
                 <p style={{ fontSize: 13 }}>
                   {b.requester_name} ({b.congregation}) · {b.headcount} people · {b.purpose}
                 </p>
-                <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Booked {new Date(b.created_at).toLocaleString()}</p>
+                <p style={{ fontSize: 12, color: 'var(--ink-soft)' }} title={formatDayLong(b.created_at)}>
+                  Requested {formatRelative(b.created_at)}
+                </p>
               </div>
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                 {!readOnly && b.status === 'pending' && (
