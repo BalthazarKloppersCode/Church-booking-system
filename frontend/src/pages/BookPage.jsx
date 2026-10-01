@@ -470,7 +470,7 @@ export default function BookPage() {
             style={{ marginTop: 10, fontSize: 13 }}
             onClick={() => setShowCalendar((v) => !v)}
           >
-            {showCalendar ? '✕ Close calendar' : '📅 Browse the calendar instead'}
+            {showCalendar ? 'Close calendar' : 'Browse the calendar instead'}
           </button>
         </form>
       )}

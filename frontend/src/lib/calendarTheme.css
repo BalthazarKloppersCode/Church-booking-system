@@ -1,0 +1,212 @@
+/*
+ * Re-skins react-big-calendar to the DESIGN_DIRECTION.md §3 tokens. The
+ * library ships its own look — a light-blue "today", a green "now" line,
+ * #ddd/#ccc/#e5e5e5 borders throughout, a default blue event fill, plain
+ * OS-button toolbar controls — none of which should survive per §9 ("no
+ * third-party component ships with default styling"). Import this AFTER
+ * react-big-calendar's own stylesheet so these rules win the cascade.
+ */
+
+/* ---------- structural borders: every #ddd/#ccc/#e5e5e5 in the library ---------- */
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view table.rbc-agenda-table,
+.rbc-overlay {
+  border-color: var(--line);
+}
+.rbc-month-row + .rbc-month-row,
+.rbc-day-bg + .rbc-day-bg,
+.rbc-header,
+.rbc-header + .rbc-header,
+.rbc-time-header.rbc-overflowing,
+.rbc-time-header > .rbc-row:first-child,
+.rbc-time-header > .rbc-row.rbc-row-resource,
+.rbc-time-header-content,
+.rbc-time-header-content > .rbc-row.rbc-row-resource,
+.rbc-time-content,
+.rbc-time-content > * + * > *,
+.rbc-time-view .rbc-allday-cell + .rbc-allday-cell,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td + td,
+.rbc-agenda-view table.rbc-agenda-table tbody > tr + tr,
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th,
+.rbc-time-view-resources .rbc-time-gutter,
+.rbc-time-view-resources .rbc-time-header-gutter {
+  border-color: var(--line);
+}
+.rbc-overlay-header {
+  border-color: var(--line-soft);
+  background: var(--paper);
+}
+.rbc-overlay {
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- hour grid: 44px rows, soft separators ---------- */
+.rbc-timeslot-group,
+.rbc-time-gutter .rbc-timeslot-group {
+  min-height: 44px;
+  border-color: var(--line-soft);
+}
+.rbc-day-slot .rbc-time-slot {
+  border-top-color: var(--line-soft);
+}
+.rbc-label {
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- day-of-week headers ---------- */
+.rbc-header {
+  padding: 8px 4px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  text-transform: none;
+}
+
+/* ---------- today: a light navy tint, not the library's light blue ---------- */
+.rbc-today {
+  background-color: color-mix(in srgb, var(--navy) 7%, var(--paper));
+}
+.rbc-header.rbc-today {
+  color: var(--navy);
+  font-weight: 700;
+  background-color: transparent;
+}
+
+/* ---------- off-range: days outside the shown month ---------- */
+.rbc-off-range {
+  color: var(--ink-3);
+}
+.rbc-off-range-bg {
+  background: var(--hover);
+}
+
+/* ---------- current-time indicator: navy, not the library's green ---------- */
+.rbc-current-time-indicator {
+  background-color: var(--navy);
+  height: 2px;
+}
+
+/* ---------- events: eventPropGetter sets each event's color; this just
+   fixes shape/typography and the parts it doesn't cover ---------- */
+.rbc-event {
+  border: none;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+}
+.rbc-event:focus {
+  outline: 2px solid var(--navy);
+  outline-offset: 1px;
+}
+.rbc-show-more {
+  color: var(--navy);
+  font-weight: 600;
+  background-color: transparent;
+}
+.rbc-show-more:hover,
+.rbc-show-more:focus {
+  color: var(--navy-deep);
+}
+
+/* ---------- toolbar: plain buttons matching the app's secondary button ---------- */
+.rbc-calendar {
+  font-family: var(--font-body);
+}
+.rbc-toolbar {
+  font-family: var(--font-body);
+  font-size: 14px;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.rbc-toolbar .rbc-toolbar-label {
+  font-weight: 600;
+  color: var(--ink);
+  flex-grow: 0;
+}
+.rbc-toolbar button {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: none;
+}
+.rbc-toolbar button:hover {
+  color: var(--ink);
+  background: var(--hover);
+  border-color: var(--line);
+}
+.rbc-toolbar button:active,
+.rbc-toolbar button.rbc-active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+  box-shadow: none;
+}
+.rbc-toolbar button:active:hover,
+.rbc-toolbar button:active:focus,
+.rbc-toolbar button.rbc-active:hover,
+.rbc-toolbar button.rbc-active:focus {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+.rbc-toolbar button:focus {
+  background: var(--paper);
+  border-color: var(--navy);
+}
+
+/* ---------- selection ---------- */
+.rbc-slot-selection {
+  background-color: color-mix(in srgb, var(--navy) 65%, transparent);
+}
+.rbc-selected-cell {
+  background-color: color-mix(in srgb, var(--navy) 8%, transparent);
+}
+
+/* ---------- a legend row for the colour key under a calendar ---------- */
+.cal-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-top: 10px;
+}
+.cal-legend .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* ---------- the "show full day" toggle row ---------- */
+.cal-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--hover);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+.cal-collapse-toggle:hover {
+  color: var(--ink);
+}

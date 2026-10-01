@@ -6,22 +6,36 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import '../../lib/calendarTheme.css';
 import { api } from '../../lib/api';
 import { formatDay, formatTimeRange } from '../../lib/formatDate';
+import { CALENDAR_FORMATS } from '../../lib/calendarFormats';
 
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: () => startOfWeek(new Date(), { locale: enUS }),
+  startOfWeek: (date) => startOfWeek(date, { weekStartsOn: 1 }),
   getDay,
   locales: { 'en-US': enUS },
 });
 
 const STATUS_COLOR = {
-  approved: '#1B3A6C',
-  pending: '#C98A2C',
-  external: '#5B6259',
+  approved: 'var(--ok)',
+  pending: 'var(--wait)',
+  external: 'var(--ink-3)',
 };
+
+const LEGEND = [
+  { status: 'approved', label: 'Confirmed' },
+  { status: 'pending', label: 'Awaiting the office' },
+  { status: 'external', label: 'Already on the church calendar' },
+];
+
+// Shown by default; "Show full day" expands to the full 00:00–24:00 range.
+const COLLAPSED_MIN = new Date(1970, 0, 1, 6, 0, 0);
+const COLLAPSED_MAX = new Date(1970, 0, 1, 21, 59, 59);
+const FULL_MIN = new Date(1970, 0, 1, 0, 0, 0);
+const FULL_MAX = new Date(1970, 0, 1, 23, 59, 59);
 
 const REPEAT_OPTIONS = [
   { value: '', label: "Doesn't repeat" },
@@ -82,6 +96,8 @@ export default function AdminCalendar() {
   const [newBookingSlot, setNewBookingSlot] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [view, setView] = useState('week');
+  const [fullDay, setFullDay] = useState(false);
 
   useEffect(() => {
     api.listRooms().then(setRooms);
@@ -120,7 +136,7 @@ export default function AdminCalendar() {
   const eventStyleGetter = useMemo(
     () => (event) => ({
       style: {
-        backgroundColor: STATUS_COLOR[event.status] || '#5B6259',
+        backgroundColor: STATUS_COLOR[event.status] || 'var(--ink-3)',
         borderRadius: 6,
         border: 'none',
       },
@@ -146,14 +162,24 @@ export default function AdminCalendar() {
       <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 10 }}>
         Click and drag on an empty slot to add a booking directly — admin-created bookings are
         confirmed instantly and can repeat weekly, every 2 weeks, or monthly.
-        {!roomFilter && ' Grey blocks are events already on the church Google Calendar.'}
       </p>
+      {(view === 'week' || view === 'day') && (
+        <button type="button" className="cal-collapse-toggle" onClick={() => setFullDay((f) => !f)}>
+          {fullDay ? '▴ Show less' : '▾ Show full day · 00:00–06:00 and 22:00–24:00 hidden'}
+        </button>
+      )}
       <div className="card" style={{ padding: 16 }}>
         <Calendar
           localizer={localizer}
           events={events}
           startAccessor="start"
           endAccessor="end"
+          view={view}
+          onView={setView}
+          views={['month', 'week', 'day']}
+          min={fullDay ? FULL_MIN : COLLAPSED_MIN}
+          max={fullDay ? FULL_MAX : COLLAPSED_MAX}
+          formats={CALENDAR_FORMATS}
           style={{ height: 650 }}
           eventPropGetter={eventStyleGetter}
           selectable
@@ -162,6 +188,14 @@ export default function AdminCalendar() {
             if (event.booking) setSelectedEvent(event.booking);
           }}
         />
+      </div>
+      <div className="cal-legend">
+        {LEGEND.filter((l) => l.status !== 'external' || !roomFilter).map((l) => (
+          <span key={l.status}>
+            <span className="dot" style={{ background: STATUS_COLOR[l.status] }} />
+            {l.label}
+          </span>
+        ))}
       </div>
 
       {newBookingSlot && (
