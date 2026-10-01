@@ -17,11 +17,11 @@ const ROOM_NAME_MAP = {
 
 const STYLE = `
   .bm-shell{max-width:100%;font-family:inherit;color:var(--ink)}
-  .bm-tabs{display:flex;gap:8px;background:var(--surface);padding:6px;border-radius:12px;box-shadow:var(--shadow);width:fit-content;margin-bottom:14px}
+  .bm-tabs{display:flex;gap:8px;background:var(--paper);padding:6px;border-radius:12px;box-shadow:var(--shadow);width:fit-content;margin-bottom:14px}
   .bm-tabs button{border:0;background:transparent;padding:8px 14px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;color:var(--ink)}
-  .bm-tabs button.active{background:var(--teal-dark);color:#fff}
-  .bm-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;padding:16px}
-  .bm-svg{width:100%;height:auto;display:block;border-radius:12px;background:linear-gradient(145deg,#f7f4ee,#ece9e3)}
+  .bm-tabs button.active{background:var(--navy);color:#fff}
+  .bm-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;padding:16px}
+  .bm-svg{width:100%;height:auto;display:block;border-radius:12px;background:var(--stone)}
   .bm-floor{display:none} .bm-floor.active{display:block}
   .bm-room-shape{stroke:#353b43;stroke-width:3;vector-effect:non-scaling-stroke;transition:.15s}
   .bm-room-shape.clickable{cursor:pointer}
@@ -33,7 +33,7 @@ const STYLE = `
   .bm-label{pointer-events:none;text-anchor:middle;fill:#fff;font-weight:800;font-size:22px;text-shadow:0 2px 5px rgba(0,0,0,.4)}
   .bm-label.dark{fill:#333;text-shadow:none}
   .bm-label.small{font-size:15px}
-  .bm-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;color:var(--ink-soft);font-size:12px;margin-top:12px}
+  .bm-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;color:var(--ink-2);font-size:12px;margin-top:12px}
   .bm-dot{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px}
 `;
 
@@ -208,10 +208,10 @@ export default function BuildingMap({ suggestions, onSelect }) {
                 {activeInfo.room.location ? ` · ${activeInfo.room.location}` : ''}
               </p>
               {activeInfo.room.amenities?.length > 0 && (
-                <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{activeInfo.room.amenities.join(' · ')}</p>
+                <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{activeInfo.room.amenities.join(' · ')}</p>
               )}
               {activeInfo.room.description && (
-                <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{activeInfo.room.description}</p>
+                <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{activeInfo.room.description}</p>
               )}
               {!activeInfo.available && (
                 <span className="badge badge-rejected">Already booked at this time</span>

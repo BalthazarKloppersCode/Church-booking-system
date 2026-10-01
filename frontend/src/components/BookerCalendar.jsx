@@ -110,7 +110,7 @@ export default function BookerCalendar({ onPick, onClose }) {
           <h3 style={{ margin: 0, fontSize: 16 }}>Browse the calendar</h3>
           <button type="button" className="btn btn-ghost" style={{ padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 10 }}>
           Blank hours are free. Tap an hour to pick that date and time — it'll take you back to the
           booking form with it filled in. Grey blocks are events already on the church calendar.
         </p>

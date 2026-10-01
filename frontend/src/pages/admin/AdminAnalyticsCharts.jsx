@@ -49,7 +49,7 @@ function ChartCard({ title, children }) {
 }
 
 function EmptyNote() {
-  return <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>No data for this period.</p>;
+  return <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>No data for this period.</p>;
 }
 
 function DonutChart({ rows }) {

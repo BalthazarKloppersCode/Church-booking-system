@@ -97,7 +97,7 @@ export default function AdminRooms() {
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>
             {editingId ? 'Edit room' : 'Add a room'}
           </h3>
-          {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+          {error && <p style={{ color: 'var(--no)', fontSize: 13 }}>{error}</p>}
           <div className="field">
             <label>Room name</label>
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -178,7 +178,7 @@ export default function AdminRooms() {
               />
               Always needs admin approval, regardless of timing
             </label>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
               Overrides the 2-week auto-approve window for this specific room — e.g. Hebrews (the
               barista shop add-on).
             </p>
@@ -212,7 +212,7 @@ export default function AdminRooms() {
                   {room.location ? ` · ${room.location}` : ''}
                 </p>
                 {room.amenities?.length > 0 && (
-                  <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{room.amenities.join(' · ')}</p>
+                  <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{room.amenities.join(' · ')}</p>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>

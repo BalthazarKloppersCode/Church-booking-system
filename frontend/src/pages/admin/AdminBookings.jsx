@@ -30,11 +30,11 @@ function sortBookings(bookings, sortKey, sortDir) {
 function SortBar({ sortKey, setSortKey, sortDir, setSortDir }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-      <label style={{ fontSize: 13, color: 'var(--ink-soft)' }}>Sort by</label>
+      <label style={{ fontSize: 13, color: 'var(--ink-2)' }}>Sort by</label>
       <select
         value={sortKey}
         onChange={(e) => setSortKey(e.target.value)}
-        style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8 }}
+        style={{ padding: '6px 10px', border: '1px solid var(--line)', borderRadius: 8 }}
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -251,7 +251,7 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
             <p style={{ fontSize: 14 }}>{b.purpose}</p>
             {b.notes && <p style={{ fontSize: 13, fontStyle: 'italic' }}>Note: {b.notes}</p>}
             <p style={{ fontSize: 12 }}>{b.email} · {b.phone}</p>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)' }} title={formatDayLong(b.created_at)}>
+            <p style={{ fontSize: 12, color: 'var(--ink-2)' }} title={formatDayLong(b.created_at)}>
               Requested {formatRelative(b.created_at)}
             </p>
 
@@ -259,7 +259,7 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
               placeholder="Optional note to include in the response"
               value={notes[b.id] || ''}
               onChange={(e) => setNotes({ ...notes, [b.id]: e.target.value })}
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, margin: '10px 0' }}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, margin: '10px 0' }}
             />
 
             <div style={{ display: 'flex', gap: 10 }}>
@@ -303,7 +303,7 @@ function BookingList({
       {bookings.map((b) =>
           editingId === b.id ? (
             <div key={b.id} className="card">
-              {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+              {error && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
               <div className="field-row">
                 <div className="field">
                   <label>Room</label>
@@ -385,7 +385,7 @@ function BookingList({
                 <p style={{ fontSize: 13 }}>
                   {b.requester_name} ({b.congregation}) · {b.headcount} people · {b.purpose}
                 </p>
-                <p style={{ fontSize: 12, color: 'var(--ink-soft)' }} title={formatDayLong(b.created_at)}>
+                <p style={{ fontSize: 12, color: 'var(--ink-2)' }} title={formatDayLong(b.created_at)}>
                   Requested {formatRelative(b.created_at)}
                 </p>
               </div>

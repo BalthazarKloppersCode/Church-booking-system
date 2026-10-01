@@ -36,7 +36,7 @@ export default function AdminRoomGrid() {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8 }}
+          style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 8 }}
         />
       </div>
 
@@ -52,7 +52,7 @@ export default function AdminRoomGrid() {
             <div key={room.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <h3 style={{ fontSize: 16 }}>{room.name}</h3>
-                <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Cap. {room.capacity}</span>
+                <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>Cap. {room.capacity}</span>
               </div>
 
               {roomBookings.length === 0 ? (
@@ -66,7 +66,7 @@ export default function AdminRoomGrid() {
                         fontSize: 13,
                         padding: '6px 10px',
                         borderRadius: 6,
-                        background: b.status === 'pending' ? 'var(--amber-tint)' : 'var(--teal-tint)',
+                        background: b.status === 'pending' ? 'var(--wait-bg)' : 'var(--ok-bg)',
                       }}
                     >
                       <strong>{formatTimeRange(b.start_time, b.end_time)}</strong>{' '}

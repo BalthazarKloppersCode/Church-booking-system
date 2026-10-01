@@ -313,7 +313,7 @@ export default function BookPage() {
           hosting the event.
         </p>
         <form className="card" onSubmit={handleBookerLogin}>
-          {loginError && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{loginError}</p>}
+          {loginError && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 10 }}>{loginError}</p>}
           <div className="field">
             <label>Email</label>
             <input
@@ -336,7 +336,7 @@ export default function BookPage() {
             {loginSubmitting ? 'Logging in…' : 'Log in'}
           </button>
         </form>
-        <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 16 }}>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 16 }}>
           Don't have an account? Contact the admin office to get one set up.
         </p>
       </div>
@@ -351,8 +351,8 @@ export default function BookPage() {
       <h1 style={{ marginBottom: 30 }}>Book a room</h1>
 
       {error && (
-        <div className="card" style={{ background: 'var(--danger-tint)', border: 'none', marginBottom: 20 }}>
-          <p style={{ color: 'var(--danger)', margin: 0 }}>{error}</p>
+        <div className="card" style={{ background: 'var(--no-bg)', border: 'none', marginBottom: 20 }}>
+          <p style={{ color: 'var(--no)', margin: 0 }}>{error}</p>
         </div>
       )}
 
@@ -403,7 +403,7 @@ export default function BookPage() {
           <button
             type="button"
             className="btn btn-ghost"
-            style={{ padding: '0 0 14px', color: 'var(--ink-soft)', fontSize: 13 }}
+            style={{ padding: '0 0 14px', color: 'var(--ink-2)', fontSize: 13 }}
             onClick={() => setStep(0)}
           >
             ← Change booking type
@@ -539,10 +539,10 @@ export default function BookPage() {
                     {s.room.location ? ` · ${s.room.location}` : ''}
                   </p>
                   {s.room.amenities?.length > 0 && (
-                    <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{s.room.amenities.join(' · ')}</p>
+                    <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{s.room.amenities.join(' · ')}</p>
                   )}
                   {s.room.description && (
-                    <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{s.room.description}</p>
+                    <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{s.room.description}</p>
                   )}
                   {!s.available && (
                     <span className="badge badge-rejected">Already booked at this time</span>
@@ -586,7 +586,7 @@ export default function BookPage() {
           <div className="field">
             <label>Congregation / group</label>
             {congregationOptions.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+              <p style={{ fontSize: 13, color: 'var(--no)' }}>
                 No congregations set up yet — ask the admin office.
               </p>
             ) : (
@@ -625,7 +625,7 @@ export default function BookPage() {
           <div className="field">
             <label>What's this booking for?</label>
             {purposesLoaded && purposes.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+              <p style={{ fontSize: 13, color: 'var(--no)' }}>
                 No booking purposes have been set up yet — ask the admin office to add one before booking.
               </p>
             ) : (
@@ -672,12 +672,12 @@ export default function BookPage() {
                 <p style={{ fontSize: 13 }}>Checking Lounge availability…</p>
               )}
               {wantsLounge && !loungeChecking && loungeAvailable === false && (
-                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                <p style={{ fontSize: 13, color: 'var(--no)' }}>
                   The Lounge is already booked for this time slot — it won't be included with this booking.
                 </p>
               )}
               {wantsLounge && !loungeChecking && loungeAvailable === true && (
-                <p style={{ fontSize: 13, color: 'var(--success)' }}>
+                <p style={{ fontSize: 13, color: 'var(--ok)' }}>
                   The Lounge is free for this time — it will be booked alongside {selectedRoom.room.name}.
                 </p>
               )}
@@ -695,19 +695,19 @@ export default function BookPage() {
                 />
                 Also book Hebrews (the barista shop) for this event
               </label>
-              <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
                 Hebrews always needs admin approval, regardless of timing.
               </p>
               {wantsHebrews && hebrewsChecking && (
                 <p style={{ fontSize: 13 }}>Checking Hebrews availability…</p>
               )}
               {wantsHebrews && !hebrewsChecking && hebrewsAvailable === false && (
-                <p style={{ fontSize: 13, color: 'var(--danger)' }}>
+                <p style={{ fontSize: 13, color: 'var(--no)' }}>
                   Hebrews is already booked for this time slot — it won't be included with this booking.
                 </p>
               )}
               {wantsHebrews && !hebrewsChecking && hebrewsAvailable === true && (
-                <p style={{ fontSize: 13, color: 'var(--success)' }}>
+                <p style={{ fontSize: 13, color: 'var(--ok)' }}>
                   Hebrews is free for this time — it will be requested alongside {selectedRoom.room.name}, pending approval.
                 </p>
               )}
@@ -724,8 +724,8 @@ export default function BookPage() {
           </div>
 
           {isPrivateEvent && (
-            <div className="card" style={{ background: 'var(--amber-tint)', border: 'none', marginBottom: 18 }}>
-              <p style={{ color: 'var(--amber)', margin: 0, fontSize: 13 }}>
+            <div className="card" style={{ background: 'var(--wait-bg)', border: 'none', marginBottom: 18 }}>
+              <p style={{ color: 'var(--wait)', margin: 0, fontSize: 13 }}>
                 {bookingKind === 'private'
                   ? "This is a private event, so it always needs admin approval before it's confirmed."
                   : "Weddings and funerals always need admin approval before they're confirmed."}
@@ -771,7 +771,7 @@ export default function BookPage() {
             </p>
           )}
           {result.loungeError && (
-            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--danger)' }}>
+            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--no)' }}>
               Couldn't book the Lounge for reception ({result.loungeError}) — please contact the admin office to arrange it separately.
             </p>
           )}
@@ -781,7 +781,7 @@ export default function BookPage() {
             </p>
           )}
           {result.hebrewsError && (
-            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--danger)' }}>
+            <p style={{ marginTop: 10, fontSize: 14, color: 'var(--no)' }}>
               Couldn't book Hebrews ({result.hebrewsError}) — please contact the admin office to arrange it separately.
             </p>
           )}

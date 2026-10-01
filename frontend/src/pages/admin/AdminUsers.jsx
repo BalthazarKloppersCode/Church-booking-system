@@ -61,7 +61,7 @@ export default function AdminUsers() {
   return (
     <div>
       <h1 style={{ marginBottom: 6 }}>Manage users</h1>
-      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 24 }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 24 }}>
         Registered users who can log in to book for areas that require login (e.g. Northern Hub).
         A booking's contact details can still be for someone else — the login just proves who's allowed to submit it.
       </p>
@@ -71,7 +71,7 @@ export default function AdminUsers() {
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>
             {editingId ? 'Edit user' : 'Add a user'}
           </h3>
-          {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+          {error && <p style={{ color: 'var(--no)', fontSize: 13 }}>{error}</p>}
           <div className="field">
             <label>Name</label>
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -95,7 +95,7 @@ export default function AdminUsers() {
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
               Drives whether this person's bookings get the 2-week auto-approve window —
               set it to the area they belong to (e.g. Northern Hub), not their congregation.
             </p>
@@ -126,7 +126,7 @@ export default function AdminUsers() {
                 <strong>{u.name}</strong>
                 {!u.active && <span className="badge badge-cancelled" style={{ marginLeft: 8 }}>Inactive</span>}
                 <p style={{ fontSize: 13 }}>{u.email} · {u.phone}</p>
-                <p style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{areaName(u.area_id)}</p>
+                <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{areaName(u.area_id)}</p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={() => startEdit(u)}>Edit</button>

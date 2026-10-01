@@ -1,25 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #F5F6F2;
-  --surface: #FFFFFF;
-  --surface-sunken: #ECEEE8;
-  --border: #DDE1D8;
-  --ink: #232823;
-  --ink-soft: #5B6259;
+  /* Foundation — see DESIGN_DIRECTION.md §3. This is the only place these
+     values are defined; every other file references them by name. */
+  --stone: #F5F6F2;      /* app ground */
+  --paper: #FFFFFF;      /* cards, fields, surfaces */
+  --navy: #1B3A6C;       /* brand, primary action, links */
+  --navy-deep: #12294D;  /* admin sidebar ground ONLY — nothing else may use this */
+  --ink: #1A1E24;        /* primary text */
+  --ink-2: #596170;      /* secondary text, meta */
+  --ink-3: #8C94A0;      /* placeholder, disabled, tertiary */
+  --line: #E2E4DD;       /* 1px borders */
+  --line-soft: #EDEFE9;  /* separators */
+  --hover: #F0F2EC;      /* row/card hover */
 
-  --teal: #1B3A6C;
-  --teal-dark: #12294D;
-  --teal-tint: #E7ECF6;
-
-  --amber: #C98A2C;
-  --amber-tint: #FBF0DE;
-
-  --danger: #B5453A;
-  --danger-tint: #FBEAE8;
-
-  --success: #3F7A5C;
-  --success-tint: #E7F2EC;
+  /* Booking state — the only semantic colours in the product */
+  --ok: #2F6B4A;      --ok-bg: #EAF4EE;      --ok-bd: #BFDCCB;      /* confirmed */
+  --wait: #8A5F14;    --wait-bg: #FBF3E2;    --wait-bd: #EBD9AE;    /* awaiting the office */
+  --no: #9E3B2E;      --no-bg: #FBEDEB;      --no-bd: #EBC7C1;      /* declined */
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -36,7 +34,7 @@ html, body, #root {
 }
 
 body {
-  background: var(--bg);
+  background: var(--stone);
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -49,9 +47,9 @@ h1, h2, h3 {
   margin: 0 0 4px;
 }
 
-p { margin: 0 0 8px; color: var(--ink-soft); line-height: 1.5; }
+p { margin: 0 0 8px; color: var(--ink-2); line-height: 1.5; }
 
-a { color: var(--teal); text-decoration: none; }
+a { color: var(--navy); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 button { font-family: var(--font-body); cursor: pointer; }
@@ -63,7 +61,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--teal);
+  outline: 2px solid var(--navy);
   outline-offset: 2px;
 }
 
@@ -80,20 +78,20 @@ a:focus-visible {
   transition: transform 0.05s ease, background 0.15s ease;
 }
 .btn:active { transform: scale(0.98); }
-.btn-primary { background: var(--teal); color: white; }
-.btn-primary:hover { background: var(--teal-dark); }
-.btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border); }
-.btn-secondary:hover { background: var(--surface-sunken); }
-.btn-danger { background: var(--danger-tint); color: var(--danger); }
-.btn-danger:hover { background: #f5d9d6; }
-.btn-ghost { background: transparent; color: var(--ink-soft); }
+.btn-primary { background: var(--navy); color: white; }
+.btn-primary:hover { filter: brightness(0.88); }
+.btn-secondary { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+.btn-secondary:hover { background: var(--hover); }
+.btn-danger { background: var(--no-bg); color: var(--no); }
+.btn-danger:hover { background: var(--no-bd); }
+.btn-ghost { background: transparent; color: var(--ink-2); }
 .btn-ghost:hover { color: var(--ink); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-block { width: 100%; }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 24px;
@@ -104,15 +102,15 @@ a:focus-visible {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--ink-2);
   margin-bottom: 6px;
 }
 .field input, .field select, .field textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--paper);
   color: var(--ink);
 }
 .field-row { display: flex; gap: 14px; }
@@ -126,10 +124,10 @@ a:focus-visible {
   font-size: 12px;
   font-weight: 600;
 }
-.badge-pending { background: var(--amber-tint); color: var(--amber); }
-.badge-approved { background: var(--success-tint); color: var(--success); }
-.badge-rejected { background: var(--danger-tint); color: var(--danger); }
-.badge-cancelled { background: var(--surface-sunken); color: var(--ink-soft); }
+.badge-pending { background: var(--wait-bg); color: var(--wait); }
+.badge-approved { background: var(--ok-bg); color: var(--ok); }
+.badge-rejected { background: var(--no-bg); color: var(--no); }
+.badge-cancelled { background: var(--hover); color: var(--ink-3); }
 
 .container {
   max-width: 880px;
@@ -142,6 +140,6 @@ a:focus-visible {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--navy);
   margin-bottom: 6px;
 }

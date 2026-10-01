@@ -37,7 +37,7 @@ export default function HomePage() {
       </div>
 
       {bookerToken && (
-        <p style={{ marginTop: 20, fontSize: 13, color: 'var(--ink-soft)' }}>
+        <p style={{ marginTop: 20, fontSize: 13, color: 'var(--ink-2)' }}>
           Logged in{bookerUser?.name ? ` as ${bookerUser.name}` : ''} ·{' '}
           <button
             type="button"
@@ -57,8 +57,8 @@ export default function HomePage() {
         </p>
       )}
 
-      <div style={{ marginTop: 64, borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-        <Link to="/admin/login" style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+      <div style={{ marginTop: 64, borderTop: '1px solid var(--line)', paddingTop: 20 }}>
+        <Link to="/admin/login" style={{ fontSize: 13, color: 'var(--ink-2)' }}>
           Admin office login →
         </Link>
       </div>

@@ -40,7 +40,7 @@ export default function AdminLayout() {
         style={{
           width: sidebarOpen ? 220 : 56,
           flexShrink: 0,
-          background: 'var(--teal-dark)',
+          background: 'var(--navy-deep)',
           color: 'white',
           padding: sidebarOpen ? '28px 18px' : '28px 8px',
           display: 'flex',

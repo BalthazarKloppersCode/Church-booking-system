@@ -30,7 +30,7 @@ export default function AdminLogin() {
       </div>
       <h1 style={{ marginBottom: 24 }}>Admin login</h1>
       <form className="card" onSubmit={handleSubmit}>
-        {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--no)', fontSize: 13 }}>{error}</p>}
         <div className="field">
           <label>Email</label>
           <input

@@ -135,7 +135,7 @@ export default function AdminCalendar() {
         <select
           value={roomFilter}
           onChange={(e) => setRoomFilter(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8 }}
+          style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 8 }}
         >
           <option value="">All rooms</option>
           {rooms.map((r) => (
@@ -143,7 +143,7 @@ export default function AdminCalendar() {
           ))}
         </select>
       </div>
-      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 10 }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 10 }}>
         Click and drag on an empty slot to add a booking directly — admin-created bookings are
         confirmed instantly and can repeat weekly, every 2 weeks, or monthly.
         {!roomFilter && ' Grey blocks are events already on the church Google Calendar.'}
@@ -254,7 +254,7 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
   return (
     <Modal title="New booking" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
         <div className="field">
           <label>Room</label>
@@ -397,7 +397,7 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
           <textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
 
-        <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 14 }}>
+        <p style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 14 }}>
           Admin-created bookings are confirmed instantly — no approval step.
         </p>
 
@@ -441,11 +441,11 @@ function EventDetailModal({ booking, onClose, onChanged }) {
 
   return (
     <Modal title={booking.room_name} onClose={onClose}>
-      {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
       <p style={{ fontSize: 14, marginBottom: 4 }}>
         <strong>{booking.congregation}</strong> · {booking.headcount} people
       </p>
-      <p style={{ fontSize: 13, color: 'var(--ink-soft)', marginBottom: 4 }}>
+      <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
         {formatDay(booking.start_time)} · {formatTimeRange(booking.start_time, booking.end_time)}
       </p>
       <p style={{ fontSize: 13, marginBottom: 4 }}>{booking.purpose}{booking.purpose_other ? `: ${booking.purpose_other}` : ''}</p>

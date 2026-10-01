@@ -48,14 +48,14 @@ export default function MyBookingsPage() {
           placeholder="Enter the email you booked with"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ flex: 1, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8 }}
+          style={{ flex: 1, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8 }}
         />
         <button className="btn btn-primary" disabled={loading}>
           {loading ? 'Looking up…' : 'Look up'}
         </button>
       </form>
 
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--no)' }}>{error}</p>}
 
       {bookings && bookings.length === 0 && <p>No bookings found for that email.</p>}
 

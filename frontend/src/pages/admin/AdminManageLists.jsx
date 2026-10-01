@@ -123,7 +123,7 @@ function ListManager({ resourceKey, resource, areas }) {
         <h3 style={{ fontSize: 16, marginBottom: 14 }}>
           {editingId ? `Edit ${resource.singular}` : `Add a ${resource.singular}`}
         </h3>
-        {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--no)', fontSize: 13 }}>{error}</p>}
         <div className="field">
           <label>{resource.fieldLabel}</label>
           <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -140,7 +140,7 @@ function ListManager({ resourceKey, resource, areas }) {
               />
               Always needs admin approval, regardless of timing
             </label>
-            <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
               Every booking requires a logged-in user regardless of area. Uncheck this only for
               areas that should also get the standard 2-week auto-approve window (e.g. Northern Hub).
             </p>

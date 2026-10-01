@@ -155,7 +155,7 @@ export default function AdminDashboard() {
                 gap: 6,
                 maxHeight: 180,
                 overflowY: 'auto',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--line)',
                 borderRadius: 8,
                 padding: 10,
               }}
@@ -201,11 +201,11 @@ export default function AdminDashboard() {
         <StatCard
           label="Awaiting approval"
           value={stats.pending_approvals}
-          accent="var(--amber)"
+          accent="var(--wait)"
           link={stats.pending_approvals > 0 ? '/admin/bookings' : null}
         />
-        <StatCard label="Bookings this week" value={stats.bookings_this_week} accent="var(--teal)" />
-        <StatCard label="Active rooms" value={stats.active_rooms} accent="var(--success)" />
+        <StatCard label="Bookings this week" value={stats.bookings_this_week} accent="var(--navy)" />
+        <StatCard label="Active rooms" value={stats.active_rooms} accent="var(--ok)" />
         <StatCard
           label="Avg. approval time (30d)"
           value={
@@ -215,7 +215,7 @@ export default function AdminDashboard() {
                 ? '—'
                 : `${analytics.avg_approval_hours}h`
           }
-          accent="var(--teal)"
+          accent="var(--navy)"
         />
       </div>
 
@@ -279,7 +279,7 @@ function StatCard({ label, value, accent, link }) {
   const content = (
     <div className="card">
       <div style={{ fontSize: 34, fontFamily: 'var(--font-display)', color: accent }}>{value}</div>
-      <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{label}</div>
+      <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{label}</div>
     </div>
   );
   return link ? <Link to={link} style={{ textDecoration: 'none' }}>{content}</Link> : content;
