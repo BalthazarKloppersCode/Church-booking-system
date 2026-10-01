@@ -135,16 +135,16 @@ export default function BuildingMap({ suggestions, onSelect }) {
           </g>
 
           <g transform="translate(-20 10)">
-            <RoomShape mapName="Leap 1" points="1115,320 1255,315 1265,395 1115,400" textX={1188} textY={362} labelClass="bm-label small" fill="url(#bm-greenGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
+            <RoomShape mapName="Kids 4" points="1115,320 1255,315 1265,395 1115,400" textX={1188} textY={362} labelClass="bm-label small" fill="url(#bm-blueGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
           </g>
           <g transform="translate(-20 10)">
-            <RoomShape mapName="Leap 2" points="1115,240 1247,235 1255,315 1115,320" textX={1184} textY={282} labelClass="bm-label small" fill="url(#bm-greenGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
+            <RoomShape mapName="Kids 5" points="1115,240 1247,235 1255,315 1115,320" textX={1184} textY={282} labelClass="bm-label small" fill="url(#bm-blueGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
           </g>
           <g transform="translate(-20 10)">
-            <RoomShape mapName="Kids 4" points="1115,160 1239,155 1247,235 1115,240" textX={1180} textY={202} labelClass="bm-label small" fill="url(#bm-blueGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
+            <RoomShape mapName="Leap 1" points="1115,160 1239,155 1247,235 1115,240" textX={1180} textY={202} labelClass="bm-label small" fill="url(#bm-greenGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
           </g>
           <g transform="translate(-20 10)">
-            <RoomShape mapName="Kids 5" points="1115,80 1231,75 1239,155 1115,160" textX={1177} textY={122} labelClass="bm-label small" fill="url(#bm-blueGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
+            <RoomShape mapName="Leap 2" points="1115,80 1231,75 1239,155 1115,160" textX={1177} textY={122} labelClass="bm-label small" fill="url(#bm-greenGrad)" suggestions={suggestions} selectedRoomId={activeInfo?.room.id} onSelectRoom={handleSelectRoom} />
           </g>
 
           <g transform="translate(40 350)">
