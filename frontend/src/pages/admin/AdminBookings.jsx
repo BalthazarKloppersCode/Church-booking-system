@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import { formatDay, formatDayLong, formatRelative, formatTimeRange } from '../../lib/formatDate';
 import DateTimeField from '../../components/fields/DateTimeField';
 import Select from '../../components/fields/Select';
+import BookingRow from '../../components/admin/BookingRow';
+import NewBookingSheet from '../../components/admin/NewBookingSheet';
+import PendingRow from '../../components/admin/PendingRow';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -55,7 +57,7 @@ export default function AdminBookings() {
   const [bookings, setBookings] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [pending, setPending] = useState(null);
-  const [notes, setNotes] = useState({});
+  const [newOpen, setNewOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -84,11 +86,11 @@ export default function AdminBookings() {
   );
   const active = (bookings || []).filter((b) => !archived.includes(b));
 
-  async function decide(id, action) {
+  async function decide(id, action, note = null) {
     setBusyId(id);
     try {
-      if (action === 'approve') await api.adminApprove(id, notes[id] || null);
-      else await api.adminReject(id, notes[id] || null);
+      if (action === 'approve') await api.adminApprove(id, note);
+      else await api.adminReject(id, note);
       await Promise.all([loadAll(), loadPending()]);
     } finally {
       setBusyId(null);
@@ -156,7 +158,16 @@ export default function AdminBookings() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: 20 }}>Bookings</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 20 }}>
+        <h1 style={{ margin: 0 }}>Bookings</h1>
+        {pending?.length > 0 && (
+          <span style={{ fontSize: 14, color: 'var(--ink-2)' }}>{pending.length} awaiting your approval</span>
+        )}
+        <div style={{ flex: 1 }} />
+        <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => setNewOpen(true)}>
+          New booking
+        </button>
+      </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         {[
           ['all', 'All bookings'],
@@ -192,6 +203,7 @@ export default function AdminBookings() {
           onCancelBooking={cancelBooking}
           onDeleteBooking={deleteBooking}
           onApprove={(id) => decide(id, 'approve')}
+          onReject={(id, note) => decide(id, 'reject', note)}
           emptyText="No active bookings."
         />
       )}
@@ -199,10 +211,9 @@ export default function AdminBookings() {
       {tab === 'approvals' && (
         <ApprovalsTab
           bookings={pending ? sortBookings(pending, sortKey, sortDir) : null}
-          notes={notes}
-          setNotes={setNotes}
           busyId={busyId}
-          onDecide={decide}
+          onApprove={(id) => decide(id, 'approve')}
+          onReject={(id, note) => decide(id, 'reject', note)}
         />
       )}
 
@@ -218,11 +229,22 @@ export default function AdminBookings() {
           emptyText="Nothing archived yet."
         />
       )}
+
+      {newOpen && (
+        <NewBookingSheet
+          onClose={() => setNewOpen(false)}
+          onCreated={() => {
+            setNewOpen(false);
+            loadAll();
+            loadPending();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
+function ApprovalsTab({ bookings, busyId, onApprove, onReject }) {
   if (!bookings) return <p>Loading…</p>;
   return (
     <div>
@@ -231,44 +253,9 @@ function ApprovalsTab({ bookings, notes, setNotes, busyId, onDecide }) {
         need approval, wait here for a decision.
       </p>
       {bookings.length === 0 && <p>Nothing waiting on you right now.</p>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bookings.map((b) => (
-          <div key={b.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div>
-                <h3 style={{ fontSize: 17 }}>{b.room_name}</h3>
-                <p style={{ fontSize: 13 }}>
-                  {formatDay(b.start_time)} · {formatTimeRange(b.start_time, b.end_time)}
-                </p>
-              </div>
-              {b.is_private_event && <span className="badge badge-pending">Private event</span>}
-            </div>
-            <p style={{ fontSize: 14 }}>
-              <strong>{b.requester_name}</strong> ({b.congregation}) · {b.headcount} people
-            </p>
-            <p style={{ fontSize: 14 }}>{b.purpose}</p>
-            {b.notes && <p style={{ fontSize: 13, fontStyle: 'italic' }}>Note: {b.notes}</p>}
-            <p style={{ fontSize: 12 }}>{b.email} · {b.phone}</p>
-            <p style={{ fontSize: 12, color: 'var(--ink-2)' }} title={formatDayLong(b.created_at)}>
-              Requested {formatRelative(b.created_at)}
-            </p>
-
-            <input
-              placeholder="Optional note to include in the response"
-              value={notes[b.id] || ''}
-              onChange={(e) => setNotes({ ...notes, [b.id]: e.target.value })}
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, margin: '10px 0' }}
-            />
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn btn-primary" disabled={busyId === b.id} onClick={() => onDecide(b.id, 'approve')}>
-                Approve
-              </button>
-              <button className="btn btn-danger" disabled={busyId === b.id} onClick={() => onDecide(b.id, 'reject')}>
-                Reject
-              </button>
-            </div>
-          </div>
+          <PendingRow key={b.id} booking={b} busy={busyId === b.id} onApprove={onApprove} onReject={onReject} />
         ))}
       </div>
     </div>
@@ -290,13 +277,14 @@ function BookingList({
   onCancelBooking,
   onDeleteBooking,
   onApprove,
+  onReject,
   readOnly,
   emptyText,
 }) {
   if (!bookingsLoaded) return <p>Loading…</p>;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {bookings.length === 0 && <p>{emptyText}</p>}
       {bookings.map((b) =>
           editingId === b.id ? (
@@ -314,9 +302,9 @@ function BookingList({
                 <div className="field">
                   <label>Status</label>
                   <Select size="admin" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="pending">Awaiting the office</option>
+                    <option value="approved">Confirmed</option>
+                    <option value="rejected">Declined</option>
                     <option value="cancelled">Cancelled</option>
                   </Select>
                 </div>
@@ -371,43 +359,37 @@ function BookingList({
               </div>
             </div>
           ) : (
-            <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h3 style={{ fontSize: 16 }}>{b.room_name}</h3>
-                  <span className={`badge badge-${b.status}`}>{b.status}</span>
-                </div>
-                <p style={{ fontSize: 13 }}>
-                  {formatDay(b.start_time)} · {formatTimeRange(b.start_time, b.end_time)}
-                </p>
-                <p style={{ fontSize: 13 }}>
-                  {b.requester_name} ({b.congregation}) · {b.headcount} people · {b.purpose}
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--ink-2)' }} title={formatDayLong(b.created_at)}>
-                  Requested {formatRelative(b.created_at)}
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                {!readOnly && b.status === 'pending' && (
-                  <button className="btn btn-primary" disabled={busyId === b.id} onClick={() => onApprove(b.id)}>
-                    Approve
-                  </button>
-                )}
-                {!readOnly && (
-                  <button className="btn btn-secondary" disabled={busyId === b.id} onClick={() => onEdit(b)}>
-                    Edit
-                  </button>
-                )}
-                {!readOnly && b.status !== 'cancelled' && (
-                  <button className="btn btn-secondary" disabled={busyId === b.id} onClick={() => onCancelBooking(b.id)}>
-                    Cancel
-                  </button>
-                )}
-                <button className="btn btn-danger" disabled={busyId === b.id} onClick={() => onDeleteBooking(b.id)}>
-                  Delete
-                </button>
-              </div>
-            </div>
+            readOnly ? (
+              <BookingRow
+                key={b.id}
+                booking={b}
+                dim
+                menu={[{ label: 'Delete…', destructive: true, disabled: busyId === b.id, onClick: () => onDeleteBooking(b.id) }]}
+              />
+            ) : b.status === 'pending' ? (
+              <PendingRow
+                key={b.id}
+                booking={b}
+                busy={busyId === b.id}
+                onApprove={onApprove}
+                onReject={onReject}
+                menu={[
+                  { label: 'Edit', onClick: () => onEdit(b) },
+                  { label: 'Cancel booking…', onClick: () => onCancelBooking(b.id) },
+                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b.id) },
+                ]}
+              />
+            ) : (
+              <BookingRow
+                key={b.id}
+                booking={b}
+                menu={[
+                  { label: 'Edit', onClick: () => onEdit(b) },
+                  b.status !== 'cancelled' && { label: 'Cancel booking…', onClick: () => onCancelBooking(b.id) },
+                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b.id) },
+                ]}
+              />
+            )
           )
         )}
     </div>

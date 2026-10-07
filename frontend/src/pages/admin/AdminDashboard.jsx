@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import AdminAnalyticsCharts from './AdminAnalyticsCharts';
-import { formatDay, formatTime } from '../../lib/formatDate';
+import { formatDayLong } from '../../lib/formatDate';
+import BookingRow from '../../components/admin/BookingRow';
+import PendingRow from '../../components/admin/PendingRow';
 import DatePicker from '../../components/fields/DatePicker';
 import Select from '../../components/fields/Select';
 
@@ -22,6 +24,8 @@ const RANGE_OPTIONS = [
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const [pending, setPending] = useState(null);
+  const [busyId, setBusyId] = useState(null);
   const [allCongregations, setAllCongregations] = useState([]);
   const [allBookings, setAllBookings] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -32,10 +36,25 @@ export default function AdminDashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
+  function reload() {
+    return Promise.all([api.adminDashboard().then(setStats), api.adminApprovals().then(setPending)]);
+  }
+
   useEffect(() => {
-    api.adminDashboard().then(setStats);
+    reload();
     api.listCongregations(false).then(setAllCongregations);
   }, []);
+
+  async function decide(id, action, note = null) {
+    setBusyId(id);
+    try {
+      if (action === 'approve') await api.adminApprove(id, note);
+      else await api.adminReject(id, note);
+      await reload();
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   useEffect(() => {
     setAnalyticsLoading(true);
@@ -99,13 +118,18 @@ export default function AdminDashboard() {
     setFilterResults(null);
   }
 
-  if (!stats) return <p>Loading…</p>;
+  if (!stats || !pending) return <p>Loading…</p>;
+
+  const WAITING_SHOWN = 8;
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1>Dashboard</h1>
-        <button className="btn btn-secondary" onClick={() => setFilterOpen((open) => !open)}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Dashboard</h1>
+          <div style={{ fontSize: 14, color: 'var(--ink-2)', marginTop: 3 }}>{formatDayLong(new Date())}</div>
+        </div>
+        <button className="btn btn-secondary" style={{ height: 36 }} onClick={() => setFilterOpen((open) => !open)}>
           {filterOpen ? 'Close filter' : 'Filter bookings'}
         </button>
       </div>
@@ -197,31 +221,78 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
-        <StatCard
-          label="Awaiting approval"
-          value={stats.pending_approvals}
-          accent="var(--wait)"
-          link={stats.pending_approvals > 0 ? '/admin/bookings' : null}
-        />
-        <StatCard label="Bookings this week" value={stats.bookings_this_week} accent="var(--navy)" />
-        <StatCard label="Active rooms" value={stats.active_rooms} accent="var(--ok)" />
-        <StatCard
-          label="Avg. approval time (30d)"
-          value={
-            analyticsLoading
-              ? '…'
-              : analytics?.avg_approval_hours == null
-                ? '—'
-                : `${analytics.avg_approval_hours}h`
-          }
-          accent="var(--navy)"
-        />
+      <div className="card" style={{ padding: '17px 20px 8px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+          <h3 style={{ margin: 0 }}>Waiting on you</h3>
+          {pending.length > 0 && <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{pending.length} request{pending.length === 1 ? '' : 's'}</span>}
+          <div style={{ flex: 1 }} />
+          {pending.length > WAITING_SHOWN && (
+            <Link to="/admin/bookings" style={{ fontSize: 13.5, fontWeight: 500 }}>See all</Link>
+          )}
+        </div>
+        {pending.length === 0 ? (
+          <p style={{ fontSize: 14, color: 'var(--ink-3)', padding: '10px 0 14px', margin: 0 }}>Nothing waiting on you.</p>
+        ) : (
+          <div>
+            {pending.slice(0, WAITING_SHOWN).map((b) => (
+              <PendingRow
+                key={b.id}
+                flat
+                booking={b}
+                busy={busyId === b.id}
+                onApprove={(id) => decide(id, 'approve')}
+                onReject={(id, note) => decide(id, 'reject', note)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="stat-strip" style={{ marginBottom: 16 }}>
+        <div className="stat">
+          <div className="stat-label">Bookings this week</div>
+          <div className="stat-value">{stats.bookings_this_week}</div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Active rooms</div>
+          <div className="stat-value">{stats.active_rooms}</div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Avg. approval time (30 days)</div>
+          <div className="stat-value">
+            {analyticsLoading ? '…' : analytics?.avg_approval_hours == null ? '—' : `${analytics.avg_approval_hours}h`}
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: '17px 20px 8px', marginBottom: 32 }}>
+        {filterResults !== null ? (
+          <>
+            <h3 style={{ margin: '0 0 4px' }}>Filtered results ({filterResults.length})</h3>
+            {filterResults.length === 0 && (
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', padding: '10px 0 14px', margin: 0 }}>No bookings match those filters.</p>
+            )}
+            {filterResults.map((b) => (
+              <BookingRow key={b.id} flat booking={b} meta={null} />
+            ))}
+          </>
+        ) : (
+          <>
+            <h3 style={{ margin: '0 0 4px' }}>Next confirmed bookings</h3>
+            {stats.next_bookings.length === 0 && (
+              <p style={{ fontSize: 14, color: 'var(--ink-3)', padding: '10px 0 14px', margin: 0 }}>Nothing confirmed yet.</p>
+            )}
+            {stats.next_bookings.map((b) => (
+              <BookingRow key={b.id} flat booking={b} meta={null} />
+            ))}
+          </>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18 }}>Analytics</h2>
+        <h2 style={{ margin: 0 }}>Analytics</h2>
         <Select size="admin"
+          aria-label="Analytics period"
           value={chartDays}
           onChange={(e) => setChartDays(Number(e.target.value))}
           style={{ minWidth: 160 }}
@@ -235,52 +306,6 @@ export default function AdminDashboard() {
         {analyticsLoading && <p>Loading analytics…</p>}
         {!analyticsLoading && <AdminAnalyticsCharts data={analytics} />}
       </div>
-
-      {filterResults !== null ? (
-        <>
-          <h2 style={{ fontSize: 18, marginBottom: 14 }}>Filtered results ({filterResults.length})</h2>
-          {filterResults.length === 0 && <p>No bookings match those filters.</p>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filterResults.map((b) => (
-              <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <strong>{b.room_name}</strong> — {b.congregation}
-                  <p style={{ fontSize: 13 }}>
-                    {formatDay(b.start_time)}, {formatTime(b.start_time)} · {b.headcount} people · {b.purpose}
-                  </p>
-                </div>
-                <span className={`badge badge-${b.status}`}>{b.status}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <h2 style={{ fontSize: 18, marginBottom: 14 }}>Next confirmed bookings</h2>
-          {stats.next_bookings.length === 0 && <p>Nothing confirmed yet.</p>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {stats.next_bookings.map((b) => (
-              <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <strong>{b.room_name}</strong> — {b.congregation}
-                  <p style={{ fontSize: 13 }}>{formatDay(b.start_time)}, {formatTime(b.start_time)}</p>
-                </div>
-                <span className="badge badge-approved">{b.headcount} people</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
-}
-
-function StatCard({ label, value, accent, link }) {
-  const content = (
-    <div className="card">
-      <div style={{ fontSize: 34, fontFamily: 'var(--font-display)', color: accent }}>{value}</div>
-      <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{label}</div>
-    </div>
-  );
-  return link ? <Link to={link} style={{ textDecoration: 'none' }}>{content}</Link> : content;
 }

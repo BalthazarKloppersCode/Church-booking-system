@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDay, formatTimeRange } from '../lib/formatDate';
+import { bookingBadge } from '../lib/bookingStatus';
 
 export default function MyBookingsPage() {
   const [email, setEmail] = useState('');
@@ -70,7 +71,7 @@ export default function MyBookingsPage() {
                 </p>
                 <p style={{ fontSize: 13 }}>{b.purpose}</p>
               </div>
-              <span className={`badge badge-${b.status}`}>{b.status}</span>
+              <span className={`badge badge-${bookingBadge(b).tone}`}>{bookingBadge(b).label}</span>
             </div>
             {(b.status === 'pending' || b.status === 'approved') && (
               <button className="btn btn-danger" style={{ marginTop: 10 }} onClick={() => handleCancel(b.id)}>

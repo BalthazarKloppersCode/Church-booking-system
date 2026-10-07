@@ -48,12 +48,7 @@ function ChartCard({ title, children }) {
   );
 }
 
-function EmptyNote() {
-  return <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>No data for this period.</p>;
-}
-
 function DonutChart({ rows }) {
-  if (!rows || rows.length === 0) return <EmptyNote />;
   return (
     <Doughnut
       data={{
@@ -68,23 +63,36 @@ function DonutChart({ rows }) {
   );
 }
 
+// Render only the charts that have something to chart; if none do, say so once
+// (DESIGN_DIRECTION.md §8) instead of four cards that each say "No data".
 export default function AdminAnalyticsCharts({ data }) {
   if (!data) return null;
 
+  const hasCongregations = data.by_congregation.length > 0;
+  const hasPurposes = data.by_purpose.length > 0;
+  const hasRooms = data.by_room.length > 0;
+  const hasWeekly = data.weekly.length > 0;
+
+  if (!hasCongregations && !hasPurposes && !hasRooms && !hasWeekly) {
+    return <p style={{ fontSize: 14, color: 'var(--ink-3)', margin: 0 }}>No bookings in this period.</p>;
+  }
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-      <ChartCard title="Bookings by congregation">
-        <DonutChart rows={data.by_congregation} />
-      </ChartCard>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+      {hasCongregations && (
+        <ChartCard title="Bookings by congregation">
+          <DonutChart rows={data.by_congregation} />
+        </ChartCard>
+      )}
 
-      <ChartCard title="Bookings by purpose">
-        <DonutChart rows={data.by_purpose} />
-      </ChartCard>
+      {hasPurposes && (
+        <ChartCard title="Bookings by purpose">
+          <DonutChart rows={data.by_purpose} />
+        </ChartCard>
+      )}
 
-      <ChartCard title="Room utilization">
-        {data.by_room.length === 0 ? (
-          <EmptyNote />
-        ) : (
+      {hasRooms && (
+        <ChartCard title="Room utilization">
           <Bar
             data={{
               labels: data.by_room.map((r) => r.label),
@@ -96,13 +104,11 @@ export default function AdminAnalyticsCharts({ data }) {
               scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
             }}
           />
-        )}
-      </ChartCard>
+        </ChartCard>
+      )}
 
-      <ChartCard title="Bookings over time (weekly)">
-        {data.weekly.length === 0 ? (
-          <EmptyNote />
-        ) : (
+      {hasWeekly && (
+        <ChartCard title="Bookings over time (weekly)">
           <Line
             data={{
               labels: data.weekly.map((w) => weekLabel(w.week_start)),
@@ -122,8 +128,8 @@ export default function AdminAnalyticsCharts({ data }) {
               scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
             }}
           />
-        )}
-      </ChartCard>
+        </ChartCard>
+      )}
     </div>
   );
 }

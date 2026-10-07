@@ -67,7 +67,7 @@ export default function AdminRoomGrid() {
                     >
                       <strong>{formatTimeRange(b.start_time, b.end_time)}</strong>{' '}
                       {b.congregation}
-                      {b.status === 'pending' ? ' (pending)' : ''}
+                      {b.status === 'pending' ? ' (awaiting the office)' : ''}
                     </div>
                   ))}
                 </div>
