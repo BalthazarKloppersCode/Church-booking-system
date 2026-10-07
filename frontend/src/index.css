@@ -19,6 +19,12 @@
   --wait: #8A5F14;    --wait-bg: #FBF3E2;    --wait-bd: #EBD9AE;    /* awaiting the office */
   --no: #9E3B2E;      --no-bg: #FBEDEB;      --no-bd: #EBC7C1;      /* declined */
 
+  /* Floor plan (§3): free = --paper + --navy outline, selected = --navy; these
+     cover the other two states. */
+  --plan-booked: #EBEDE6;   /* already booked */
+  --plan-blocked: #F1F2EC;  /* not bookable: corridors, stairs, toilets */
+  --plan-line: #CDD2CA;     /* outline for both */
+
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 

@@ -60,7 +60,6 @@ export default function BookPage() {
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [viewMode, setViewMode] = useState('list');
   const [mapSuggestions, setMapSuggestions] = useState(null);
-  const [mapLoading, setMapLoading] = useState(false);
 
   const [form, setForm] = useState({
     requester_name: '',
@@ -221,33 +220,23 @@ export default function BookPage() {
         end_time,
         ...(search.type ? { type: search.type } : {}),
       };
-      const rooms = await api.suggestRooms(payload);
+      // The map is the default results view, and it should always show every
+      // room regardless of the room-type filter the list uses — so when a type
+      // is set, fetch the unfiltered set alongside it.
+      const [rooms, allRooms] = await Promise.all([
+        api.suggestRooms(payload),
+        search.type
+          ? api.suggestRooms({ headcount: payload.headcount, start_time, end_time })
+          : null,
+      ]);
       setSuggestions(rooms);
-      setMapSuggestions(null);
-      setViewMode('list');
+      setMapSuggestions(allRooms || rooms);
+      setViewMode('map');
       setStep(2);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleShowMap() {
-    setViewMode('map');
-    if (mapSuggestions) return;
-    setMapLoading(true);
-    try {
-      const start_time = toLocalISOString(search.date, search.startTime);
-      const end_time = toLocalISOString(search.date, search.endTime);
-      // Unfiltered by room type — the map should always show every room,
-      // regardless of the type filter used for the list search.
-      const rooms = await api.suggestRooms({ headcount: Number(search.headcount), start_time, end_time });
-      setMapSuggestions(rooms);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setMapLoading(false);
     }
   }
 
@@ -515,29 +504,25 @@ export default function BookPage() {
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button
                 type="button"
+                className={viewMode === 'map' ? 'btn btn-primary' : 'btn btn-secondary'}
+                style={{ padding: '6px 12px', fontSize: 12 }}
+                onClick={() => setViewMode('map')}
+              >
+                Map
+              </button>
+              <button
+                type="button"
                 className={viewMode === 'list' ? 'btn btn-primary' : 'btn btn-secondary'}
                 style={{ padding: '6px 12px', fontSize: 12 }}
                 onClick={() => setViewMode('list')}
               >
                 List
               </button>
-              <button
-                type="button"
-                className={viewMode === 'map' ? 'btn btn-primary' : 'btn btn-secondary'}
-                style={{ padding: '6px 12px', fontSize: 12 }}
-                onClick={() => handleShowMap()}
-              >
-                Map
-              </button>
             </div>
           </div>
 
           {viewMode === 'map' ? (
-            mapLoading ? (
-              <p>Loading map…</p>
-            ) : (
-              <BuildingMap suggestions={mapSuggestions || []} onSelect={pickRoom} />
-            )
+            <BuildingMap suggestions={mapSuggestions || []} onSelect={pickRoom} />
           ) : (
             <>
           {suggestions.length === 0 && (
