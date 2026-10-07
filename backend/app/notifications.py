@@ -301,6 +301,13 @@ def _confirmation_details(booking: dict, room: dict) -> list[tuple[str, str]]:
         ("Time", format_time_range(start, end)),
         ("Venue/Room", room["name"]),
     ]
+    # Straight from Manage Rooms: whatever equipment the admin ticked for this
+    # room (chairs, sound system, AV...) and where to find it.
+    amenities = [a for a in (room.get("amenities") or []) if a]
+    if amenities:
+        rows.append(("Room equipment", ", ".join(amenities)))
+    if room.get("location"):
+        rows.append(("Location", room["location"]))
     if _reference(booking):
         rows.append(("Reference", _reference(booking)))
     return rows

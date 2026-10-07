@@ -8,6 +8,7 @@ const EMPTY_ROOM = {
   name: '',
   type: 'classroom',
   capacity: '',
+  min_people: '',
   location: '',
   amenities: [],
   description: '',
@@ -37,6 +38,7 @@ export default function AdminRooms() {
       name: room.name,
       type: room.type,
       capacity: room.capacity,
+      min_people: room.min_people ?? '',
       location: room.location || '',
       amenities: room.amenities || [],
       description: room.description || '',
@@ -69,6 +71,8 @@ export default function AdminRooms() {
       const payload = {
         ...rest,
         capacity: Number(form.capacity),
+        // null (not omitted) so clearing the box clears it on the server
+        min_people: form.min_people === '' ? null : Number(form.min_people),
         photo_urls: photo_urls_text.split('\n').map((u) => u.trim()).filter(Boolean),
       };
       if (editingId) {
@@ -115,16 +119,32 @@ export default function AdminRooms() {
               <option value="barista">Barista shop</option>
             </Select>
           </div>
-          <div className="field">
-            <label>Capacity</label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={form.capacity}
-              onChange={(e) => setForm({ ...form, capacity: e.target.value })}
-            />
+          <div className="field-row">
+            <div className="field">
+              <label>Minimum people (optional)</label>
+              <input
+                type="number"
+                min="1"
+                max={form.capacity || undefined}
+                value={form.min_people}
+                onChange={(e) => setForm({ ...form, min_people: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Maximum people (capacity)</label>
+              <input
+                type="number"
+                min="1"
+                required
+                value={form.capacity}
+                onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+              />
+            </div>
           </div>
+          <p style={{ fontSize: 12, color: 'var(--ink-2)', margin: '-8px 0 18px' }}>
+            This room is offered to groups between the minimum and the maximum. Leave the minimum
+            empty and the system decides automatically, steering small groups away from big rooms.
+          </p>
           <div className="field">
             <label>Location (optional)</label>
             <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
@@ -209,7 +229,7 @@ export default function AdminRooms() {
               <div>
                 <strong>{room.name}</strong>
                 <p style={{ fontSize: 13 }}>
-                  {room.type.replace('_', ' ')} · Capacity {room.capacity}
+                  {room.type.replace('_', ' ')} · {room.min_people ? `${room.min_people}–${room.capacity} people` : `Up to ${room.capacity} people`}
                   {room.location ? ` · ${room.location}` : ''}
                 </p>
                 {room.amenities?.length > 0 && (

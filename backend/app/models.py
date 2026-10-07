@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator, model_validator
 
 
 def now_iso() -> datetime:
@@ -75,11 +75,24 @@ class RoomBase(BaseModel):
             "they are or which area the booker belongs to — e.g. Hebrews (the barista shop add-on)."
         ),
     )
+    min_people: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Smallest group this room is offered to; `capacity` is the largest. When set, the room is "
+            "offered to any group between the two and the automatic 'too large for your group' size "
+            "rule no longer applies to it. Leave empty to let that automatic rule decide."
+        ),
+    )
     active: bool = True
 
 
 class RoomCreate(RoomBase):
-    pass
+    @model_validator(mode="after")
+    def _min_not_above_capacity(self):
+        if self.min_people is not None and self.min_people > self.capacity:
+            raise ValueError("The minimum number of people can't be more than the room's capacity")
+        return self
 
 
 class RoomUpdate(BaseModel):
@@ -94,6 +107,7 @@ class RoomUpdate(BaseModel):
     photo_urls: Optional[List[str]] = None
     photo_url: Optional[str] = None
     always_requires_approval: Optional[bool] = None
+    min_people: Optional[int] = Field(default=None, ge=1)
     active: Optional[bool] = None
 
 
@@ -437,3 +451,4 @@ class RoomSuggestion(BaseModel):
     room: Room
     available: bool
     fit_quality: str  # "good_fit" | "oversized" | "too_small"
+    note: Optional[str] = None  # why a room is blocked, in words the booker can act on

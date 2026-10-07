@@ -221,3 +221,29 @@ async def test_whatsapp_confirmation_stays_short(monkeypatch):
     assert phone == "+27820000000"
     assert "confirmed" in message and "emailed to you" in message
     assert "Prestik" not in message
+
+
+def test_room_equipment_and_location_come_from_manage_rooms():
+    room = {
+        "name": "Training Hall",
+        "amenities": ["Chairs", "Sound system", "AV"],
+        "location": "Upper floor",
+        "setup_notes": None,
+        "booking_message": None,
+    }
+    for private in (True, False):
+        _, text, html = build_confirmation_email(make_booking(is_private_event=private), room)
+        assert "Room equipment: Chairs, Sound system, AV" in text
+        assert "Location: Upper floor" in text
+        assert "Chairs, Sound system, AV" in html
+
+
+def test_equipment_rows_are_omitted_when_the_room_lists_none():
+    _, text, _ = build_confirmation_email(make_booking(), {"name": "Training Hall", "amenities": [], "location": None})
+    assert "Room equipment" not in text and "Location:" not in text
+
+
+def test_room_equipment_is_html_escaped():
+    room = {"name": "Hall", "amenities": ["<b>AV</b>"], "location": None}
+    _, _, html = build_confirmation_email(make_booking(), room)
+    assert "<b>AV</b>" not in html and "&lt;b&gt;AV&lt;/b&gt;" in html

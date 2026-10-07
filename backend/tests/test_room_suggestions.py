@@ -116,3 +116,93 @@ async def test_suggestion_reflects_room_already_booked(client, rooms_col, booker
     resp = await client.post("/api/rooms/suggest", json=req)
     suggestion = next(s for s in resp.json() if s["room"]["name"] == "Busy Room")
     assert suggestion["available"] is False
+
+
+# ---- per-room minimum people (Manage Rooms) ----
+
+async def _admin_headers(client):
+    from app.config import settings
+
+    await client.post(
+        "/api/admin/register",
+        json={"name": "Alice", "email": "alice@example.com", "password": "hunter22", "setup_secret": settings.admin_setup_secret},
+    )
+    login = await client.post("/api/admin/login", json={"email": "alice@example.com", "password": "hunter22"})
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
+def _by_name(response):
+    return {s["room"]["name"]: s for s in response.json()}
+
+
+async def test_group_under_a_rooms_minimum_is_blocked_with_a_reason(client, rooms_col):
+    await make_room(rooms_col, name="Classroom", type="classroom", capacity=30)
+    await make_room(rooms_col, name="Training Hall", type="training_hall", capacity=200, min_people=40)
+
+    suggestions = _by_name(await client.post("/api/rooms/suggest", json=_suggestion_request(headcount=20)))
+    assert suggestions["Training Hall"]["fit_quality"] == "oversized"
+    assert suggestions["Training Hall"]["note"] == "Needs at least 40 people"
+    assert suggestions["Classroom"]["fit_quality"] == "good_fit"
+
+
+async def test_room_with_a_minimum_is_offered_across_its_whole_range(client, rooms_col):
+    # 55 people used to leave only the Coffee Shop: the 200-seat Training Hall
+    # was auto-blocked as "too large". With a configured minimum it's offered.
+    await make_room(rooms_col, name="Coffee Shop", type="coffee_shop", capacity=70)
+    await make_room(rooms_col, name="Training Hall", type="training_hall", capacity=200, min_people=40)
+    await make_room(rooms_col, name="Main Hall", type="main_hall", capacity=600)
+
+    suggestions = _by_name(await client.post("/api/rooms/suggest", json=_suggestion_request(headcount=55)))
+    assert suggestions["Coffee Shop"]["fit_quality"] == "good_fit"
+    assert suggestions["Training Hall"]["fit_quality"] == "good_fit"
+    assert suggestions["Training Hall"]["note"] is None
+    # No minimum configured: the automatic size rule still applies.
+    assert suggestions["Main Hall"]["fit_quality"] == "oversized"
+
+
+async def test_room_under_its_minimum_is_not_the_reference_for_the_size_rule(client, rooms_col):
+    # Coffee Shop is out for 20 people, so it must not be the "right-sized"
+    # reference that then blocks the only other room that fits.
+    await make_room(rooms_col, name="Coffee Shop", type="coffee_shop", capacity=70, min_people=30)
+    await make_room(rooms_col, name="Main Hall", type="main_hall", capacity=600)
+
+    suggestions = _by_name(await client.post("/api/rooms/suggest", json=_suggestion_request(headcount=20)))
+    assert suggestions["Coffee Shop"]["fit_quality"] == "oversized"
+    assert suggestions["Main Hall"]["fit_quality"] == "good_fit"
+
+
+async def test_automatic_rule_still_explains_itself(client, rooms_col):
+    await make_room(rooms_col, name="Classroom", type="classroom", capacity=30)
+    await make_room(rooms_col, name="Main Hall", type="main_hall", capacity=600)
+    suggestions = _by_name(await client.post("/api/rooms/suggest", json=_suggestion_request(headcount=20)))
+    assert suggestions["Main Hall"]["note"] == "Too large for your group — pick a smaller room"
+
+
+async def test_create_room_rejects_a_minimum_above_capacity(client):
+    headers = await _admin_headers(client)
+    body = {"name": "Hall", "type": "main_hall", "capacity": 20, "min_people": 30}
+    assert (await client.post("/api/rooms", json=body, headers=headers)).status_code == 422
+    ok = await client.post("/api/rooms", json={**body, "min_people": 10}, headers=headers)
+    assert ok.status_code == 200 and ok.json()["min_people"] == 10
+
+
+async def test_minimum_can_be_set_changed_and_cleared_on_update(client, rooms_col):
+    headers = await _admin_headers(client)
+    room_id = await make_room(rooms_col, name="Hall", type="training_hall", capacity=100)
+
+    set_ = await client.patch(f"/api/rooms/{room_id}", json={"min_people": 40}, headers=headers)
+    assert set_.json()["min_people"] == 40
+
+    untouched = await client.patch(f"/api/rooms/{room_id}", json={"name": "Hall B"}, headers=headers)
+    assert untouched.json()["min_people"] == 40  # omitted means unchanged
+
+    cleared = await client.patch(f"/api/rooms/{room_id}", json={"min_people": None}, headers=headers)
+    assert cleared.json()["min_people"] is None
+
+    too_high = await client.patch(f"/api/rooms/{room_id}", json={"min_people": 500}, headers=headers)
+    assert too_high.status_code == 400
+
+    lowering_capacity = await client.patch(f"/api/rooms/{room_id}", json={"min_people": 60}, headers=headers)
+    assert lowering_capacity.status_code == 200
+    below = await client.patch(f"/api/rooms/{room_id}", json={"capacity": 50}, headers=headers)
+    assert below.status_code == 400  # would leave min (60) above the new capacity

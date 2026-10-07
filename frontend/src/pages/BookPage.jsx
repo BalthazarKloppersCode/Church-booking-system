@@ -3,11 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import BuildingMap from '../components/BuildingMap';
 import { formatDay, formatSlot } from '../lib/formatDate';
-import { SLOT_MINUTES, fromMinutes, toMinutes } from '../lib/timeSlots';
+import { END_SLOTS, SLOT_MINUTES, START_SLOTS, durationLabel, fromMinutes, slotsWithValue, toMinutes } from '../lib/timeSlots';
 import DatePicker from '../components/fields/DatePicker';
-import DurationChips from '../components/fields/DurationChips';
 import Select from '../components/fields/Select';
-import TimeChips from '../components/fields/TimeChips';
 
 // Pulls in react-big-calendar/date-fns — its own lazy chunk so the default
 // booking flow doesn't pay for it unless someone actually opens the calendar.
@@ -438,22 +436,39 @@ export default function BookPage() {
               onChange={(e) => setSearch({ ...search, date: e.target.value })}
             />
           </div>
-          <div className="field">
-            <label>Start time</label>
-            <TimeChips
-              aria-label="Start time"
-              value={search.startTime}
-              onChange={handleStartTimeChange}
-            />
+          <div className="field-row">
+            <div className="field">
+              <label>Start time</label>
+              <Select
+                required
+                aria-label="Start time"
+                value={search.startTime}
+                onChange={handleStartTimeChange}
+              >
+                {slotsWithValue(START_SLOTS, search.startTime).map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="field">
+              <label>End time</label>
+              <Select
+                required
+                aria-label="End time"
+                value={search.endTime}
+                onChange={(e) => setSearch({ ...search, endTime: e.target.value })}
+              >
+                {slotsWithValue(END_SLOTS, search.endTime)
+                  .filter((t) => toMinutes(t) > toMinutes(search.startTime))
+                  .map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+              </Select>
+            </div>
           </div>
-          <div className="field">
-            <label>How long?</label>
-            <DurationChips
-              start={search.startTime}
-              end={search.endTime}
-              onChange={(e) => setSearch({ ...search, endTime: e.target.value })}
-            />
-          </div>
+          <p className="field-hint" style={{ margin: '-10px 0 18px' }}>
+            {durationLabel(toMinutes(search.endTime) - toMinutes(search.startTime))}
+          </p>
           <div className="field-row">
             <div className="field">
               <label>How many people?</label>
@@ -562,7 +577,7 @@ export default function BookPage() {
                     <span className="badge badge-rejected">Already booked at this time</span>
                   )}
                   {s.available && s.fit_quality === 'oversized' && (
-                    <span className="badge badge-cancelled">Too large for your group — pick a smaller room</span>
+                    <span className="badge badge-cancelled">{s.note || 'Too large for your group — pick a smaller room'}</span>
                   )}
                   {s.available && s.fit_quality === 'too_small' && (
                     <span className="badge badge-pending">Below your headcount</span>

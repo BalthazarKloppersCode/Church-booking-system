@@ -51,6 +51,12 @@ const STYLE = `
   .bm-sublabel.small{font-size:12px}
   .bm-sublabel.state-selected{fill:#fff;opacity:.8}
 
+  .bm-tip{position:fixed;z-index:1100;width:250px;padding:10px 12px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--float);font-size:13px;line-height:1.45;pointer-events:none}
+  .bm-tip-name{font-size:14px;font-weight:600;color:var(--ink)}
+  .bm-tip-meta{color:var(--ink-2);margin-top:1px}
+  .bm-tip-gear{margin-top:6px;color:var(--ink)}
+  .bm-tip-gear.is-empty{color:var(--ink-3)}
+  .bm-tip-status{margin-top:6px;font-size:12.5px;color:var(--ink-3)}
   .bm-legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;color:var(--ink-2);font-size:13px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft)}
   .bm-legend span{display:inline-flex;align-items:center}
   .bm-swatch{width:22px;height:15px;border-radius:3px;display:inline-block;margin-right:7px;border:1.2px solid var(--plan-line)}
@@ -67,18 +73,39 @@ function roomState(suggestion, selectedRoomId) {
   // Too large for the group (more than 20% over the best-fitting option, for
   // anything other than a classroom/leap room) is a hard block, same as
   // already being booked — not just a soft "larger than you need" badge.
-  if (suggestion.fit_quality === 'oversized') return { state: 'unavailable', note: 'too large' };
+  if (suggestion.fit_quality === 'oversized') {
+    // A configured minimum from Manage Rooms reads as "min 40"; the automatic size rule as "too large".
+    const underMinimum = suggestion.room.min_people && suggestion.note?.startsWith('Needs');
+    return { state: 'unavailable', note: underMinimum ? `min ${suggestion.room.min_people}` : 'too large' };
+  }
   return { state: 'free' };
 }
 
-function RoomShape({ mapName, points, path, textX, textY, textStyle, small, suggestions, selectedRoomId, onSelectRoom }) {
+function RoomShape({ mapName, points, path, textX, textY, textStyle, small, suggestions, selectedRoomId, onSelectRoom, onHover }) {
   const dbName = ROOM_NAME_MAP[mapName];
   const suggestion = suggestions.find((s) => s.room.name === dbName);
   const { state, note } = roomState(suggestion, selectedRoomId);
   const clickable = state === 'free' || state === 'selected';
   const stateText = { free: 'free', selected: 'selected', booked: 'already booked', unavailable: note || 'not available' }[state];
 
+  // Hovering (or keyboard-focusing) a room shows what's in it, before anyone
+  // has to click through to the detail card.
+  const show = (x, y) => onHover({ suggestion, state, note, x, y });
+  const hoverProps = suggestion
+    ? {
+        onMouseEnter: (e) => show(e.clientX, e.clientY),
+        onMouseMove: (e) => show(e.clientX, e.clientY),
+        onMouseLeave: () => onHover(null),
+        onFocus: (e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          show(r.left + r.width / 2, r.top + r.height / 2);
+        },
+        onBlur: () => onHover(null),
+      }
+    : {};
+
   const shapeProps = {
+    ...hoverProps,
     className: `bm-room state-${state}`,
     role: 'button',
     tabIndex: clickable ? 0 : -1,
@@ -110,9 +137,38 @@ function RoomShape({ mapName, points, path, textX, textY, textStyle, small, sugg
   );
 }
 
+const TIP_STATUS = {
+  free: 'Free at your time',
+  selected: 'Selected',
+  booked: 'Already booked at this time',
+};
+
+function RoomTooltip({ hover }) {
+  const { suggestion, state, x, y } = hover;
+  const { room } = suggestion;
+  const left = Math.max(8, Math.min(x + 14, window.innerWidth - 250 - 8));
+  const placeBelow = y + 16 + 130 < window.innerHeight;
+  const position = placeBelow ? { top: y + 16 } : { bottom: window.innerHeight - y + 16 };
+  const equipment = room.amenities?.length ? room.amenities.join(' · ') : null;
+  const status = state === 'unavailable' ? (suggestion.fit_quality === 'oversized' ? suggestion.note : null) : TIP_STATUS[state];
+
+  return (
+    <div className="bm-tip" style={{ left, ...position }} role="tooltip">
+      <div className="bm-tip-name">{room.name}</div>
+      <div className="bm-tip-meta">
+        Seats {room.capacity} · {room.type.replace('_', ' ')}
+        {room.location ? ` · ${room.location}` : ''}
+      </div>
+      <div className={`bm-tip-gear${equipment ? '' : ' is-empty'}`}>{equipment || 'No equipment listed'}</div>
+      {status && <div className="bm-tip-status">{status}</div>}
+    </div>
+  );
+}
+
 export default function BuildingMap({ suggestions, onSelect }) {
   const [floor, setFloor] = useState('ground');
   const [activeInfo, setActiveInfo] = useState(null);
+  const [hover, setHover] = useState(null);
   const selectedRoomId = activeInfo?.room.id;
 
   function handleSelectRoom(suggestion) {
@@ -123,15 +179,15 @@ export default function BuildingMap({ suggestions, onSelect }) {
     if (activeInfo) onSelect(activeInfo);
   }
 
-  const common = { suggestions, selectedRoomId, onSelectRoom: handleSelectRoom };
+  const common = { suggestions, selectedRoomId, onSelectRoom: handleSelectRoom, onHover: setHover };
 
   return (
     <div className="bm-shell">
       <style>{STYLE}</style>
 
       <div className="bm-tabs">
-        <button type="button" className={floor === 'ground' ? 'active' : ''} onClick={() => setFloor('ground')}>Ground floor</button>
-        <button type="button" className={floor === 'upper' ? 'active' : ''} onClick={() => setFloor('upper')}>Upper floor</button>
+        <button type="button" className={floor === 'ground' ? 'active' : ''} onClick={() => { setFloor('ground'); setHover(null); }}>Ground floor</button>
+        <button type="button" className={floor === 'upper' ? 'active' : ''} onClick={() => { setFloor('upper'); setHover(null); }}>Upper floor</button>
       </div>
 
       <div className="bm-card">
@@ -226,6 +282,8 @@ export default function BuildingMap({ suggestions, onSelect }) {
         </div>
       </div>
 
+      {hover && <RoomTooltip hover={hover} />}
+
       {activeInfo && (
         <div className="card" style={{ marginTop: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -245,7 +303,7 @@ export default function BuildingMap({ suggestions, onSelect }) {
                 <span className="badge badge-rejected">Already booked at this time</span>
               )}
               {activeInfo.available && activeInfo.fit_quality === 'oversized' && (
-                <span className="badge badge-cancelled">Too large for your group — pick a smaller room</span>
+                <span className="badge badge-cancelled">{activeInfo.note || 'Too large for your group — pick a smaller room'}</span>
               )}
               {activeInfo.fit_quality === 'too_small' && (
                 <span className="badge badge-pending">Below your headcount</span>
