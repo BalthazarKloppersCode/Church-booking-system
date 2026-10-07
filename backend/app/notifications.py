@@ -192,21 +192,21 @@ def _send_email_sync(to: str, subject: str, text_body: str, html_body: str | Non
 
 async def send_email(to: str, subject: str, text_body: str, html_body: str | None = None):
     if not email_is_configured():
-        print(f"[email skipped - no EMAIL_FROM/EMAIL_PASSWORD] to={to} subject={subject}")
+        print(f"[email skipped - no EMAIL_FROM/EMAIL_PASSWORD] to={to} subject={subject}", flush=True)
         return
     try:
         # smtplib is blocking — running it directly in an async function
         # would stall the whole event loop (every other concurrent request)
         # for the round-trip. Push it to a thread instead.
         await asyncio.to_thread(_send_email_sync, to, subject, text_body, html_body)
-        print(f"[email sent] to={to} subject={subject}")
+        print(f"[email sent] to={to} subject={subject}", flush=True)
     except Exception as e:
-        print(f"[email error] to={to} {type(e).__name__}: {e}")
+        print(f"[email error] to={to} {type(e).__name__}: {e}", flush=True)
 
 
 async def send_whatsapp(to_phone: str, message: str):
     if not settings.whatsapp_access_token or not settings.whatsapp_phone_number_id:
-        print(f"[whatsapp skipped - no credentials] to={to_phone} message={message}")
+        print(f"[whatsapp skipped - no credentials] to={to_phone} message={message}", flush=True)
         return
     url = f"https://graph.facebook.com/v20.0/{settings.whatsapp_phone_number_id}/messages"
     headers = {"Authorization": f"Bearer {settings.whatsapp_access_token}"}
@@ -220,9 +220,9 @@ async def send_whatsapp(to_phone: str, message: str):
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers, timeout=10)
             if resp.status_code >= 400:
-                print(f"[whatsapp error] {resp.status_code} {resp.text}")
+                print(f"[whatsapp error] {resp.status_code} {resp.text}", flush=True)
     except Exception as e:
-        print(f"[whatsapp error] {e}")
+        print(f"[whatsapp error] {e}", flush=True)
 
 
 PRIVATE_BRAND = "Joshua Generation Pinehurst"

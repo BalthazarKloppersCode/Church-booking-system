@@ -71,13 +71,13 @@ async def _request(method: str, path: str, **kwargs) -> Optional[dict]:
         if resp.status_code >= 400:
             # 404/410 on a delete just means the event is already gone —
             # not worth alarming about, but still worth a log line.
-            print(f"[google calendar error] {method} {path} -> {resp.status_code} {resp.text}")
+            print(f"[google calendar error] {method} {path} -> {resp.status_code} {resp.text}", flush=True)
             return None
         if resp.status_code == 204 or not resp.content:
             return {}
         return resp.json()
     except Exception as e:
-        print(f"[google calendar error] {e}")
+        print(f"[google calendar error] {e}", flush=True)
         return None
 
 
@@ -117,7 +117,7 @@ async def create_event(booking: dict, room_name: str) -> Optional[str]:
     Google event id (to be saved back onto the booking doc), or None if
     sync is disabled or the call failed."""
     if not _enabled():
-        print("[google calendar skipped - not configured]")
+        print("[google calendar skipped - not configured]", flush=True)
         return None
     result = await _request(
         "POST", f"/calendars/{settings.google_calendar_id}/events", json=_event_body(booking, room_name)

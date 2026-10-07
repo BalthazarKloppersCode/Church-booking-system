@@ -43,9 +43,9 @@ async def startup():
     # mistyped email setting is visible without having to make a booking.
     if email_is_configured():
         sender, password = _email_credentials()
-        print(f"[email] configured: sending as {sender} via {settings.smtp_host}:{settings.smtp_port} (password length {len(password)})")
+        print(f"[email] configured: sending as {sender} via {settings.smtp_host}:{settings.smtp_port} (password length {len(password)})", flush=True)
     else:
-        print("[email] NOT configured: set EMAIL_FROM and EMAIL_PASSWORD — booking emails will be skipped")
+        print("[email] NOT configured: set EMAIL_FROM and EMAIL_PASSWORD — booking emails will be skipped", flush=True)
 
 
 @app.get("/api/health")
