@@ -8,7 +8,20 @@ flag (%-d on Linux/macOS, %#d on Windows) isn't portable across the dev
 machine (Windows) and Render (Linux), so the day number is built by hand
 instead of relying on either.
 """
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+from app.config import settings
+
+
+def to_local(d: datetime) -> datetime:
+    """
+    Bookings are stored as naive UTC, so formatting one directly shows UTC
+    clock times — two hours off for Johannesburg. Convert to the church's
+    timezone before formatting anything a person will read.
+    """
+    aware = d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d
+    return aware.astimezone(ZoneInfo(settings.church_timezone))
 
 
 def _day_no_pad(d: datetime) -> str:

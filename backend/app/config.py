@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     admin_notify_email: str = ""
     admin_notify_whatsapp: str = ""
 
+    # Bookings are stored as naive UTC; anything a person reads (emails, error
+    # messages) is shown in this timezone instead.
+    church_timezone: str = "Africa/Johannesburg"
+
     frontend_url: str = "http://localhost:5173"
 
     class Config:
