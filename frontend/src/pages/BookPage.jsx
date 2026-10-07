@@ -52,6 +52,22 @@ const CANCELLATION_NOTICES = {
 const CONDITIONS_ACKNOWLEDGEMENT =
   'I have read and accept the venue booking conditions and understand my responsibilities when using the Joshua Generation Pinehurst venue.';
 
+function readStoredBooker() {
+  try {
+    return JSON.parse(localStorage.getItem('booker_user') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+// Starts the contact fields from the logged-in booker's own details. They stay
+// editable — a booking can be for someone else — but the common case (booking
+// for yourself) no longer means retyping an email address, where a typo would
+// send the confirmation to the wrong place.
+function contactDefaults(user) {
+  return { requester_name: user?.name || '', email: user?.email || '', phone: user?.phone || '' };
+}
+
 export default function BookPage() {
   const [step, setStep] = useState(0);
   const [bookingKind, setBookingKind] = useState(null); // 'church' | 'private'
@@ -70,28 +86,20 @@ export default function BookPage() {
   const [viewMode, setViewMode] = useState('list');
   const [mapSuggestions, setMapSuggestions] = useState(null);
 
-  const [form, setForm] = useState({
-    requester_name: '',
+  const [form, setForm] = useState(() => ({
+    ...contactDefaults(readStoredBooker()),
     congregation: '',
-    email: '',
-    phone: '',
     purpose: '',
     purpose_other: '',
     notes: '',
-  });
+  }));
 
   const [result, setResult] = useState(null);
   const [acceptedConditions, setAcceptedConditions] = useState(false);
 
   const [congregationOptions, setCongregationOptions] = useState([]);
   const [bookerToken, setBookerToken] = useState(() => localStorage.getItem('booker_token') || '');
-  const [bookerUser, setBookerUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('booker_user') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const [bookerUser, setBookerUser] = useState(readStoredBooker);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [loginSubmitting, setLoginSubmitting] = useState(false);
@@ -142,6 +150,7 @@ export default function BookPage() {
       localStorage.setItem('booker_user', JSON.stringify(result.user));
       setBookerToken(result.access_token);
       setBookerUser(result.user);
+      setForm((f) => ({ ...f, ...contactDefaults(result.user) }));
     } catch (err) {
       setLoginError(err.message);
     } finally {

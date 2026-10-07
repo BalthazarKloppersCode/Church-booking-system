@@ -247,3 +247,164 @@ def test_room_equipment_is_html_escaped():
     room = {"name": "Hall", "amenities": ["<b>AV</b>"], "location": None}
     _, _, html = build_confirmation_email(make_booking(), room)
     assert "<b>AV</b>" not in html and "&lt;b&gt;AV&lt;/b&gt;" in html
+
+
+class _RecordingSMTP(_FakeSMTP):
+    logins = []
+
+    def login(self, *args):
+        _RecordingSMTP.logins.append(args)
+
+
+async def test_credentials_with_stray_whitespace_still_log_in(monkeypatch):
+    # What a hosting dashboard / Google's grouped App Password display can produce.
+    _RecordingSMTP.logins = []
+    _FakeSMTP.sent = []
+    monkeypatch.setattr(notifications.smtplib, "SMTP", _RecordingSMTP)
+    monkeypatch.setattr(settings, "email_from", "  church@gmail.com \n")
+    monkeypatch.setattr(settings, "email_password", "abcd efgh ijkl mnop\n")
+    monkeypatch.setattr(settings, "email_from_name", "Pinehurst Campus Bookings")
+    monkeypatch.setattr(settings, "whatsapp_access_token", "")
+
+    await notifications.send_email("jane@example.com", "Hello", "body")
+
+    assert _RecordingSMTP.logins == [("church@gmail.com", "abcdefghijklmnop")]
+    sender, _, raw = _FakeSMTP.sent[0]
+    assert sender == "church@gmail.com"
+    assert email_lib.message_from_string(raw)["From"] == "Pinehurst Campus Bookings <church@gmail.com>"
+
+
+async def test_email_is_skipped_not_attempted_without_credentials(monkeypatch, capsys):
+    _FakeSMTP.sent = []
+    monkeypatch.setattr(notifications.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(settings, "email_from", "church@gmail.com")
+    monkeypatch.setattr(settings, "email_password", "   ")
+    await notifications.send_email("jane@example.com", "Hello", "body")
+    assert _FakeSMTP.sent == []
+    assert "[email skipped" in capsys.readouterr().out
+
+
+async def test_send_results_are_logged_for_the_hosting_logs(monkeypatch, capsys):
+    monkeypatch.setattr(notifications.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(settings, "email_from", "church@gmail.com")
+    monkeypatch.setattr(settings, "email_password", "abcdefghijklmnop")
+    await notifications.send_email("jane@example.com", "Hello", "body")
+    assert "[email sent] to=jane@example.com" in capsys.readouterr().out
+
+    monkeypatch.setattr(notifications, "_send_email_sync", lambda *a: (_ for _ in ()).throw(OSError("smtp is down")))
+    await notifications.send_email("jane@example.com", "Hello", "body")
+    assert "[email error] to=jane@example.com OSError: smtp is down" in capsys.readouterr().out
+
+
+async def test_every_notification_builds_and_sends(monkeypatch):
+    """A bug inside any notify_* would otherwise be swallowed silently by the background task."""
+    emails, whatsapps = [], []
+
+    async def fake_email(to, subject, text, html=None):
+        emails.append((to, subject))
+
+    async def fake_whatsapp(phone, message):
+        whatsapps.append(phone)
+
+    monkeypatch.setattr(notifications, "send_email", fake_email)
+    monkeypatch.setattr(notifications, "send_whatsapp", fake_whatsapp)
+    monkeypatch.setattr(settings, "admin_notify_email", "office@example.com")
+    monkeypatch.setattr(settings, "admin_notify_whatsapp", "+27821111111")
+
+    booking = make_booking(congregation="Durbanville <b>", admin_note="Clashes with <i>Youth</i>")
+    church = make_booking(is_private_event=False, purpose="Kids ministry")
+
+    await notifications.notify_booking_pending(booking, ROOM)
+    await notifications.notify_booking_pending(church, ROOM)
+    await notifications.notify_booking_decision(booking, ROOM, approved=True)
+    await notifications.notify_booking_decision(booking, ROOM, approved=False)
+    await notifications.notify_admin_new_request(booking, ROOM)
+    await notifications.notify_booking_confirmed(church, ROOM)
+
+    subjects = [s for _, s in emails]
+    assert any(s.startswith("Booking request received") for s in subjects)
+    assert any(s.startswith("Booking not approved") for s in subjects)
+    assert any(s.startswith("New booking needs approval") for s in subjects)
+    assert ("office@example.com", "New booking needs approval: Training Hall") in emails
+    assert sum(1 for s in subjects if s.startswith("Booking Confirmed")) == 2  # private (via approve) + church
+    assert "+27821111111" in whatsapps
+
+
+def _decoded_subject(raw_message: str) -> str:
+    from email.header import decode_header, make_header
+
+    return str(make_header(decode_header(email_lib.message_from_string(raw_message)["Subject"])))
+
+
+async def test_confirmation_goes_to_the_email_saved_on_the_booking(
+    client, rooms_col, bookings_col, booker_headers, auto_approve_congregation, monkeypatch
+):
+    """Through the real API: the booker is logged in as booker@example.com but books with another contact address."""
+    from tests.conftest import booking_payload, make_room
+
+    _FakeSMTP.sent = []
+    monkeypatch.setattr(notifications.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(settings, "email_from", "church@gmail.com")
+    monkeypatch.setattr(settings, "email_password", "abcdefghijklmnop")
+    monkeypatch.setattr(settings, "whatsapp_access_token", "")
+
+    room_id = await make_room(rooms_col, name="Kids Classroom 1", amenities=["Chairs", "TV & HDMI"])
+    resp = await client.post(
+        "/api/bookings",
+        json=booking_payload(
+            room_id,
+            congregation=auto_approve_congregation,
+            start_offset_days=3,
+            email="guest@example.com",
+            requester_name="Guest Booker",
+        ),
+        headers=booker_headers,
+    )
+    assert resp.status_code == 200 and resp.json()["status"] == "approved"
+
+    stored = await bookings_col.find_one({"email": "guest@example.com"})
+    assert stored is not None and stored["requester_name"] == "Guest Booker"
+
+    # Auto-approved: exactly one confirmation, addressed to the saved booking email only.
+    assert [recipients for _, recipients, _ in _FakeSMTP.sent] == [["guest@example.com"]]
+    parsed = email_lib.message_from_string(_FakeSMTP.sent[0][2])
+    assert parsed["To"] == "guest@example.com"
+    assert _decoded_subject(_FakeSMTP.sent[0][2]).startswith("Booking Confirmed – ")
+    body = parsed.get_payload()[0].get_payload(decode=True).decode()
+    assert body.startswith("Dear Guest Booker,")
+    assert "Room equipment: Chairs, TV & HDMI" in body  # pulled from the room record
+
+
+async def test_admin_approval_emails_the_booking_email_not_the_admin(
+    client, rooms_col, booker_headers, monkeypatch
+):
+    from tests.conftest import booking_payload, make_room
+
+    _FakeSMTP.sent = []
+    monkeypatch.setattr(notifications.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(settings, "email_from", "church@gmail.com")
+    monkeypatch.setattr(settings, "email_password", "abcdefghijklmnop")
+    monkeypatch.setattr(settings, "whatsapp_access_token", "")
+    monkeypatch.setattr(settings, "admin_notify_email", "")
+
+    await client.post(
+        "/api/admin/register",
+        json={"name": "Alice", "email": "alice@example.com", "password": "hunter22", "setup_secret": settings.admin_setup_secret},
+    )
+    login = await client.post("/api/admin/login", json={"email": "alice@example.com", "password": "hunter22"})
+    admin_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    room_id = await make_room(rooms_col)
+    created = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, start_offset_days=30, email="guest@example.com", is_private_event=True),
+        headers=booker_headers,
+    )
+    assert created.json()["status"] == "pending"
+    pending_recipients = [r for _, r, _ in _FakeSMTP.sent]
+    assert pending_recipients == [["guest@example.com"]]  # "request received"
+
+    _FakeSMTP.sent = []
+    await client.post(f"/api/admin/bookings/{created.json()['id']}/approve", json={}, headers=admin_headers)
+    assert [r for _, r, _ in _FakeSMTP.sent] == [["guest@example.com"]]
+    assert _decoded_subject(_FakeSMTP.sent[0][2]).endswith("| Joshua Generation Pinehurst")

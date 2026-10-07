@@ -154,10 +154,29 @@ def _email_shell(
 </html>"""
 
 
+def _email_credentials() -> tuple[str, str]:
+    """
+    The sender address and App Password exactly as Gmail needs them. Values
+    pasted into a hosting dashboard often pick up a trailing space or newline,
+    and Google shows App Passwords in four groups with spaces between — both
+    would otherwise fail the login with an unhelpful "authentication" error.
+    """
+    sender = "".join(settings.email_from.split())
+    password = "".join(settings.email_password.split())
+    return sender, password
+
+
+def email_is_configured() -> bool:
+    sender, password = _email_credentials()
+    return bool(sender and password)
+
+
 def _send_email_sync(to: str, subject: str, text_body: str, html_body: str | None) -> None:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = " ".join(subject.split())
-    msg["From"] = f"{settings.email_from_name} <{settings.email_from}>" if settings.email_from_name else settings.email_from
+    sender, password = _email_credentials()
+    from_name = settings.email_from_name.strip()
+    msg["From"] = f"{from_name} <{sender}>" if from_name else sender
     msg["To"] = to
     # Attach the plain-text part first, HTML last — for "alternative" MIME,
     # clients render the last part they understand, so HTML wins where
@@ -167,12 +186,12 @@ def _send_email_sync(to: str, subject: str, text_body: str, html_body: str | Non
         msg.attach(MIMEText(html_body, "html"))
     with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
         server.starttls()
-        server.login(settings.email_from, settings.email_password)
-        server.sendmail(settings.email_from, [to], msg.as_string())
+        server.login(sender, password)
+        server.sendmail(sender, [to], msg.as_string())
 
 
 async def send_email(to: str, subject: str, text_body: str, html_body: str | None = None):
-    if not settings.email_from or not settings.email_password:
+    if not email_is_configured():
         print(f"[email skipped - no EMAIL_FROM/EMAIL_PASSWORD] to={to} subject={subject}")
         return
     try:
@@ -180,8 +199,9 @@ async def send_email(to: str, subject: str, text_body: str, html_body: str | Non
         # would stall the whole event loop (every other concurrent request)
         # for the round-trip. Push it to a thread instead.
         await asyncio.to_thread(_send_email_sync, to, subject, text_body, html_body)
+        print(f"[email sent] to={to} subject={subject}")
     except Exception as e:
-        print(f"[email error] {e}")
+        print(f"[email error] to={to} {type(e).__name__}: {e}")
 
 
 async def send_whatsapp(to_phone: str, message: str):

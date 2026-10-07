@@ -5,6 +5,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database import ensure_indexes
+from app.notifications import _email_credentials, email_is_configured
 from app.rate_limit import limiter
 from app.routers import rooms, bookings, admin, congregations, booking_purposes, areas, users, auth
 
@@ -38,6 +39,13 @@ app.include_router(auth.router)
 @app.on_event("startup")
 async def startup():
     await ensure_indexes()
+    # Shows up in the hosting logs right after a deploy, so a missing or
+    # mistyped email setting is visible without having to make a booking.
+    if email_is_configured():
+        sender, password = _email_credentials()
+        print(f"[email] configured: sending as {sender} via {settings.smtp_host}:{settings.smtp_port} (password length {len(password)})")
+    else:
+        print("[email] NOT configured: set EMAIL_FROM and EMAIL_PASSWORD — booking emails will be skipped")
 
 
 @app.get("/api/health")
