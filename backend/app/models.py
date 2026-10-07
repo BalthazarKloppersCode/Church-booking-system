@@ -386,6 +386,26 @@ class CalendarEntry(BaseModel):
         return v.isoformat()
 
 
+class BookingConfirmation(BaseModel):
+    """
+    What the on-screen confirmation page shows for a booking: its status and
+    time (for the "add to calendar" file) plus the same structured content the
+    confirmation email is rendered from.
+    """
+    booking_id: str
+    status: BookingStatus
+    room_name: str
+    start_time: datetime
+    end_time: datetime
+    content: dict
+
+    @field_serializer("start_time", "end_time")
+    def _serialize_as_utc(self, v: datetime) -> str:
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
+
+
 class ExternalCalendarEvent(BaseModel):
     """
     An event already on the synced Google Calendar that didn't come from a

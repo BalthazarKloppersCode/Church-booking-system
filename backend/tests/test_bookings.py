@@ -250,3 +250,46 @@ async def test_accepted_conditions_acknowledgement_is_recorded(client, rooms_col
     assert plain.status_code == 200
     stored = await bookings_col.find_one({"_id": ObjectId(plain.json()["id"])})
     assert stored["accepted_conditions"] is False
+
+
+async def test_confirmation_page_content_needs_the_booking_email(client, rooms_col, booker_headers):
+    room_id = await make_room(rooms_col, name="Training Hall", amenities=["Chairs", "AV"], location="Upper floor")
+    created = (
+        await client.post(
+            "/api/bookings",
+            json=booking_payload(room_id, start_offset_days=30, purpose="Wedding", is_private_event=True),
+            headers=booker_headers,
+        )
+    ).json()
+
+    wrong = await client.get(f"/api/bookings/{created['id']}/confirmation", params={"email": "someone-else@example.com"})
+    assert wrong.status_code == 403
+    assert (await client.get("/api/bookings/not-an-id/confirmation", params={"email": "x@example.com"})).status_code == 404
+
+    resp = await client.get(f"/api/bookings/{created['id']}/confirmation", params={"email": created["email"].upper()})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "pending"
+    assert body["start_time"].endswith("+00:00")
+    content = body["content"]
+    assert content["private"] is True and content["event"] == "Wedding"
+    assert content["reminders_heading"] == "Important Information"
+    assert "three months" in content["cancellation"]
+    details = {d["label"]: d["value"] for d in content["details"]}
+    assert details["Venue/Room"] == "Training Hall"
+    assert details["Room equipment"] == "Chairs, AV"
+    assert details["Location"] == "Upper floor"
+    assert details["Reference"].startswith("JGP-")
+
+
+async def test_church_confirmation_content_is_the_short_version(client, rooms_col, booker_headers):
+    room_id = await make_room(rooms_col)
+    created = (
+        await client.post("/api/bookings", json=booking_payload(room_id, purpose="Kids ministry"), headers=booker_headers)
+    ).json()
+    content = (
+        await client.get(f"/api/bookings/{created['id']}/confirmation", params={"email": created["email"]})
+    ).json()["content"]
+    assert content["private"] is False
+    assert content["reminders_heading"] == "A few reminders for your booking"
+    assert content["cancellation"] is None

@@ -84,6 +84,8 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/bookings${qs ? `?${qs}` : ''}`);
   },
+  getBookingConfirmation: (id, email) =>
+    request(`/api/bookings/${id}/confirmation?email=${encodeURIComponent(email)}`),
   cancelBooking: (id, email) =>
     request(`/api/bookings/${id}/cancel?email=${encodeURIComponent(email)}`, { method: 'POST' }),
   listBookingsCalendar: (params = {}) => {

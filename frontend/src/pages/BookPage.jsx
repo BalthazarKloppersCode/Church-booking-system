@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import BookingConfirmation from '../components/BookingConfirmation';
 import BuildingMap from '../components/BuildingMap';
 import { formatDay, formatSlot } from '../lib/formatDate';
 import { END_SLOTS, SLOT_MINUTES, START_SLOTS, durationLabel, fromMinutes, slotsWithValue, toMinutes } from '../lib/timeSlots';
@@ -828,6 +829,7 @@ export default function BookPage() {
       )}
 
       {step === 4 && result && (
+        <>
         <div className="card">
           {result.status === 'approved' ? (
             <>
@@ -835,7 +837,8 @@ export default function BookPage() {
               <h3>You're all set.</h3>
               <p>
                 {result.room_name} is booked for {formatSlot(result.start_time, result.end_time)}.
-                A confirmation with room setup instructions has been sent to your email and WhatsApp.
+                Your confirmation is below — save it before you leave this page. We're also sending a copy
+                to your email and WhatsApp.
               </p>
             </>
           ) : (
@@ -843,7 +846,7 @@ export default function BookPage() {
               <span className="badge badge-pending" style={{ marginBottom: 12 }}>Pending approval</span>
               <h3>Request sent to the admin office.</h3>
               <p>
-                We'll notify you by email and WhatsApp as soon as it's reviewed
+                We'll notify you as soon as it's reviewed, and you can save a copy of your request below
                 {result.is_private_event ? ' — private events always need a quick approval.' : ' — bookings more than two weeks out need a quick approval.'}
               </p>
             </>
@@ -870,6 +873,8 @@ export default function BookPage() {
           )}
           <Link to="/" className="btn btn-secondary" style={{ marginTop: 10 }}>Back home</Link>
         </div>
+        <BookingConfirmation bookingId={result.id} email={form.email} />
+        </>
       )}
     </div>
   );

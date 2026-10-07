@@ -364,3 +364,11 @@ a:focus-visible {
 .stat-strip .stat:first-child { border-left: 0; }
 .stat-strip .stat-label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
 .stat-strip .stat-value { margin-top: 3px; font-size: 22px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* "Save as PDF" prints only the confirmation: everything else is hidden. */
+@media print {
+  body * { visibility: hidden; }
+  .confirmation-doc, .confirmation-doc * { visibility: visible; }
+  .confirmation-doc { position: absolute; left: 0; top: 0; width: 100%; border: 0; box-shadow: none; padding: 0 !important; }
+  .no-print { display: none !important; }
+}

@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDay, formatTimeRange } from '../lib/formatDate';
 import { bookingBadge } from '../lib/bookingStatus';
+import BookingConfirmation from '../components/BookingConfirmation';
 
 export default function MyBookingsPage() {
   const [email, setEmail] = useState('');
   const [bookings, setBookings] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [openId, setOpenId] = useState(null);
 
   async function handleLookup(e) {
     e.preventDefault();
@@ -74,10 +76,16 @@ export default function MyBookingsPage() {
               <span className={`badge badge-${bookingBadge(b).tone}`}>{bookingBadge(b).label}</span>
             </div>
             {(b.status === 'pending' || b.status === 'approved') && (
-              <button className="btn btn-danger" style={{ marginTop: 10 }} onClick={() => handleCancel(b.id)}>
-                Cancel booking
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                <button className="btn btn-secondary" onClick={() => setOpenId(openId === b.id ? null : b.id)}>
+                  {openId === b.id ? 'Hide confirmation' : 'View & save confirmation'}
+                </button>
+                <button className="btn btn-danger" onClick={() => handleCancel(b.id)}>
+                  Cancel booking
+                </button>
+              </div>
             )}
+            {openId === b.id && <BookingConfirmation bookingId={b.id} email={email} />}
           </div>
         ))}
       </div>

@@ -341,89 +341,116 @@ def _room_notes_text(room: dict) -> str:
     return _room_setup_block(room["name"], room.get("setup_notes")) + _room_message_block(room)
 
 
-def build_confirmation_email(booking: dict, room: dict) -> tuple[str, str, str]:
+def confirmation_content(booking: dict, room: dict) -> dict:
     """
-    Returns (subject, plain_text, html) for a booking that has just been
-    approved. Private bookings (weddings, birthdays, other non-congregation
-    events) get the fuller conditions; church bookings get a shorter set of
-    reminders. Neither contains gate or alarm codes — those go out the day
-    before the event.
+    Everything a booking confirmation says, as plain data. The email, its
+    plain-text twin and the on-screen confirmation page are all rendered from
+    this, so the wording lives in exactly one place.
+
+    Private bookings (weddings, birthdays, other non-congregation events) get
+    the fuller conditions; church bookings get a shorter set of reminders.
+    Neither contains gate or alarm codes — those go out the day before.
     """
     private = bool(booking.get("is_private_event"))
     event = _event_name(booking)
-    name = booking["requester_name"]
     rows = _confirmation_details(booking, room)
-    details_text = _details_text(rows)
 
+    common = {
+        "private": private,
+        "event": event,
+        "recipient_name": booking["requester_name"],
+        "details": [{"label": label, "value": value} for label, value in rows],
+        "reference": _reference(booking),
+        "room_notes": {
+            "setup_notes": room.get("setup_notes") or None,
+            "booking_message": room.get("booking_message") or None,
+        },
+    }
     if private:
-        brand, subtitle = PRIVATE_BRAND, "Venue booking"
-        subject = f"Booking Confirmed – {event} | Joshua Generation Pinehurst"
-        intro_text = f"This email confirms your booking for {event} at Joshua Generation Pinehurst."
-        reminders_heading = "Important Information"
-        reminders = PRIVATE_RESPONSIBILITIES
-        extra_notes = [PRIVATE_TABLECLOTH_NOTE]
-        access_note = PRIVATE_ACCESS_NOTE
-        cancellation = _cancellation_notice(booking)
-        closing = [
-            "If you have any questions regarding your booking or venue arrangements, please contact the Pinehurst admin team.",
-        ]
-        sign_off = "Joshua Generation Pinehurst"
-        footer = "Questions about your booking? Contact the Pinehurst admin team."
-    else:
-        brand, subtitle = CHURCH_BRAND, "Booking confirmation"
-        subject = f"Booking Confirmed – {event} | Pinehurst"
-        intro_text = f"This email confirms your booking for {event}."
-        reminders_heading = "A few reminders for your booking"
-        reminders = CHURCH_REMINDERS
-        extra_notes = []
-        access_note = CHURCH_ACCESS_NOTE
-        cancellation = None  # the wedding/birthday clauses never apply to church bookings
-        closing = []
-        sign_off = "Pinehurst"
-        footer = "Questions about your booking? Contact the Pinehurst admin team."
+        return {
+            **common,
+            "brand": PRIVATE_BRAND,
+            "subtitle": "Venue booking",
+            "subject": f"Booking Confirmed – {event} | Joshua Generation Pinehurst",
+            "intro": f"This confirms your booking for {event} at Joshua Generation Pinehurst.",
+            "intro_email": f"This email confirms your booking for {event} at Joshua Generation Pinehurst.",
+            "reminders_heading": "Important Information",
+            "reminders": PRIVATE_RESPONSIBILITIES,
+            "extra_notes": [PRIVATE_TABLECLOTH_NOTE],
+            "access_note": PRIVATE_ACCESS_NOTE,
+            "cancellation": _cancellation_notice(booking),
+            "closing": [
+                "If you have any questions regarding your booking or venue arrangements, please contact the Pinehurst admin team.",
+            ],
+            "sign_off": "Joshua Generation Pinehurst",
+            "footer": "Questions about your booking? Contact the Pinehurst admin team.",
+        }
+    return {
+        **common,
+        "brand": CHURCH_BRAND,
+        "subtitle": "Booking confirmation",
+        "subject": f"Booking Confirmed – {event} | Pinehurst",
+        "intro": f"This confirms your booking for {event}.",
+        "intro_email": f"This email confirms your booking for {event}.",
+        "reminders_heading": "A few reminders for your booking",
+        "reminders": CHURCH_REMINDERS,
+        "extra_notes": [],
+        "access_note": CHURCH_ACCESS_NOTE,
+        "cancellation": None,  # the wedding/birthday clauses never apply to church bookings
+        "closing": [],
+        "sign_off": "Pinehurst",
+        "footer": "Questions about your booking? Contact the Pinehurst admin team.",
+    }
+
+
+def build_confirmation_email(booking: dict, room: dict) -> tuple[str, str, str]:
+    """Returns (subject, plain_text, html) for a booking that has just been approved."""
+    c = confirmation_content(booking, room)
+    event, name = c["event"], c["recipient_name"]
+    rows = [(d["label"], d["value"]) for d in c["details"]]
 
     # ---- plain text
-    parts = [f"Dear {name},", "", intro_text, "", "BOOKING DETAILS", details_text]
+    parts = [f"Dear {name},", "", c["intro_email"], "", "BOOKING DETAILS", _details_text(rows)]
     notes_text = _room_notes_text(room).strip()
     if notes_text:
         parts += ["", notes_text]
-    parts += ["", reminders_heading.upper()] + [f"- {item}" for item in reminders]
-    for note in extra_notes:
+    parts += ["", c["reminders_heading"].upper()] + [f"- {item}" for item in c["reminders"]]
+    for note in c["extra_notes"]:
         parts += ["", note]
-    parts += ["", access_note]
-    if cancellation:
-        parts += ["", cancellation]
-    for line in closing:
+    parts += ["", c["access_note"]]
+    if c["cancellation"]:
+        parts += ["", c["cancellation"]]
+    for line in c["closing"]:
         parts += ["", line]
-    parts += ["", "Kind regards,", sign_off]
+    parts += ["", "Kind regards,", c["sign_off"]]
     text_body = "\n".join(parts)
 
     # ---- HTML
     content = _section_heading_html("Booking Details") + _detail_rows_html(rows)
     content += _room_extras_html(room)
-    content += _section_heading_html(reminders_heading) + _bullets_html(reminders)
-    for note in extra_notes:
+    content += _section_heading_html(c["reminders_heading"]) + _bullets_html(c["reminders"])
+    for note in c["extra_notes"]:
         content += _paragraph_html(note)
-    content += _paragraph_html(access_note, emphasis=True)
-    if cancellation:
-        content += _paragraph_html(cancellation)
-    for line in closing:
+    content += _paragraph_html(c["access_note"], emphasis=True)
+    if c["cancellation"]:
+        content += _paragraph_html(c["cancellation"])
+    for line in c["closing"]:
         content += _paragraph_html(line)
     content += (
         f'<p style="font-size:14px;line-height:1.6;margin:22px 0 0;color:{BRAND["ink"]};">'
-        f"Kind regards,<br><strong>{esc(sign_off)}</strong></p>"
+        f"Kind regards,<br><strong>{esc(c['sign_off'])}</strong></p>"
     )
     html_body = _email_shell(
         heading=f"Dear {esc(name)},",
-        intro=esc(intro_text),
+        intro=esc(c["intro_email"]),
         badge_html=_badge_html("Confirmed", BRAND["success"], BRAND["success_tint"]),
         content_html=content,
         preheader=f"Your booking for {event} is confirmed.",
-        brand=brand,
-        subtitle=subtitle,
-        footer=footer,
+        brand=c["brand"],
+        subtitle=c["subtitle"],
+        footer=c["footer"],
     )
-    return subject, text_body, html_body
+    return c["subject"], text_body, html_body
 
 
 async def notify_booking_confirmed(booking: dict, room: dict):

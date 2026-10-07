@@ -8,8 +8,9 @@ from app import calendar_sync, google_calendar
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
 from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
-from app.models import Booking, BookingCreate, BookingStatus, CalendarEntry, ExternalCalendarEvent
+from app.models import Booking, BookingConfirmation, BookingCreate, BookingStatus, CalendarEntry, ExternalCalendarEvent
 from app.notifications import (
+    confirmation_content,
     notify_booking_confirmed,
     notify_booking_pending,
     notify_admin_new_request,
@@ -194,6 +195,32 @@ async def list_external_calendar_events(
     end = start_before or (now + timedelta(days=90))
     events = await google_calendar.list_external_events(start, end)
     return [ExternalCalendarEvent(**e) for e in events]
+
+
+@router.get("/{booking_id}/confirmation", response_model=BookingConfirmation)
+@limiter.limit("30/minute")
+async def booking_confirmation(request: Request, booking_id: str, email: str):
+    """
+    The confirmation a booker can read and save on screen — the same content
+    as the confirmation email, so it still works when an email doesn't arrive.
+    Guarded the same way cancelling is: you need the email the booking was
+    made with.
+    """
+    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)}) if ObjectId.is_valid(booking_id) else None
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    if booking["email"].lower() != email.lower():
+        raise HTTPException(403, "That email doesn't match this booking")
+
+    room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])}) or {"name": booking["room_name"]}
+    return BookingConfirmation(
+        booking_id=str(booking["_id"]),
+        status=booking["status"],
+        room_name=booking["room_name"],
+        start_time=booking["start_time"],
+        end_time=booking["end_time"],
+        content=confirmation_content(booking, room),
+    )
 
 
 @router.post("/{booking_id}/cancel", response_model=Booking)
