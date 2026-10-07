@@ -416,6 +416,7 @@ class ExternalCalendarEvent(BaseModel):
     title: str
     start_time: datetime
     end_time: datetime
+    all_day: bool = False
 
     @field_serializer("start_time", "end_time")
     def _serialize_as_utc(self, v: datetime) -> str:

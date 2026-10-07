@@ -106,6 +106,7 @@ export default function AdminCalendar() {
         title: `${e.title} (church calendar)`,
         start: new Date(e.start_time),
         end: new Date(e.end_time),
+        allDay: Boolean(e.all_day),
         status: 'external',
         booking: null,
       }));

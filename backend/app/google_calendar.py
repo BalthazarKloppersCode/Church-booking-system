@@ -26,11 +26,13 @@ import asyncio
 import json
 from datetime import date, datetime, time, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import httpx
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
+from app import ical_feed
 from app.config import settings
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -150,9 +152,10 @@ def _parse_gcal_datetime(node: dict) -> datetime:
             s = s[:-1] + "+00:00"
         dt = datetime.fromisoformat(s)
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
-    # All-day event — only a "date" (YYYY-MM-DD), no time component.
+    # All-day event — only a "date" (YYYY-MM-DD). It starts at midnight local
+    # time, not midnight UTC.
     d = date.fromisoformat(node["date"])
-    return datetime.combine(d, time.min)
+    return ical_feed.to_utc_naive(d, ZoneInfo(settings.church_timezone))[0]
 
 
 async def list_external_events(start_after: datetime, start_before: datetime) -> list[dict]:
@@ -164,7 +167,8 @@ async def list_external_events(start_after: datetime, start_before: datetime) ->
     they're already shown from our own booking records).
     """
     if not _enabled():
-        return []
+        # No service account — fall back to the read-only iCal feed, if set.
+        return await ical_feed.list_events(start_after, start_before)
     time_min = start_after if start_after.tzinfo else start_after.replace(tzinfo=timezone.utc)
     time_max = start_before if start_before.tzinfo else start_before.replace(tzinfo=timezone.utc)
     params = {
@@ -192,6 +196,7 @@ async def list_external_events(start_after: datetime, start_before: datetime) ->
                     "title": item.get("summary") or "(Untitled event)",
                     "start_time": _parse_gcal_datetime(start),
                     "end_time": _parse_gcal_datetime(end),
+                    "all_day": "date" in start,
                 }
             )
         except Exception:

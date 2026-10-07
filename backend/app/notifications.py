@@ -21,7 +21,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-import httpx
+from app import whatsapp
 from app.config import settings
 from app.date_format import format_day_long, format_day_short, format_time, format_time_range, to_local
 
@@ -204,25 +204,9 @@ async def send_email(to: str, subject: str, text_body: str, html_body: str | Non
         print(f"[email error] to={to} {type(e).__name__}: {e}", flush=True)
 
 
-async def send_whatsapp(to_phone: str, message: str):
-    if not settings.whatsapp_access_token or not settings.whatsapp_phone_number_id:
-        print(f"[whatsapp skipped - no credentials] to={to_phone} message={message}", flush=True)
-        return
-    url = f"https://graph.facebook.com/v20.0/{settings.whatsapp_phone_number_id}/messages"
-    headers = {"Authorization": f"Bearer {settings.whatsapp_access_token}"}
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to_phone,
-        "type": "text",
-        "text": {"body": message},
-    }
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers, timeout=10)
-            if resp.status_code >= 400:
-                print(f"[whatsapp error] {resp.status_code} {resp.text}", flush=True)
-    except Exception as e:
-        print(f"[whatsapp error] {e}", flush=True)
+async def send_whatsapp(to_phone: str, template: str, params: list):
+    """Sends one of the approved templates in app/whatsapp.py; never raises."""
+    await whatsapp.send_template(to_phone, template, params)
 
 
 PRIVATE_BRAND = "Joshua Generation Pinehurst"
@@ -462,15 +446,21 @@ async def notify_booking_confirmed(booking: dict, room: dict):
     """
     subject, text_body, html_body = build_confirmation_email(booking, room)
 
-    # WhatsApp stays short — the full conditions are in the email.
-    whatsapp_body = (
-        f"Hi {booking['requester_name']}, your booking for {_event_name(booking)} is confirmed.\n\n"
-        f"{_details_text(_confirmation_details(booking, room))}\n\n"
-        "The full details and venue conditions have been emailed to you."
-    )
+    # WhatsApp stays short — the full conditions are on the booking site's
+    # confirmation page (and in the email, where email can be sent).
+    start, end = _local_times(booking)
+    whatsapp_params = [
+        booking["requester_name"],
+        _event_name(booking),
+        room["name"],
+        format_day_long(start),
+        format_time_range(start, end),
+        _reference(booking) or "-",
+        f"{settings.frontend_url.rstrip('/')}/my-bookings",
+    ]
     await asyncio.gather(
         send_email(booking["email"], subject, text_body, html_body),
-        send_whatsapp(booking["phone"], whatsapp_body),
+        send_whatsapp(booking["phone"], "booking_confirmed", whatsapp_params),
     )
 
 
@@ -502,7 +492,14 @@ async def notify_booking_pending(booking: dict, room: dict):
             f"This needs admin approval because {reason}. We'll let you know as soon as it's reviewed.</p>"
         ),
     )
-    await asyncio.gather(send_email(booking["email"], subject, body, html_body), send_whatsapp(booking["phone"], body))
+    await asyncio.gather(
+        send_email(booking["email"], subject, body, html_body),
+        send_whatsapp(
+            booking["phone"],
+            "booking_pending",
+            [booking["requester_name"], room["name"], format_day_long(start), format_time(start)],
+        ),
+    )
 
 
 async def notify_booking_decision(booking: dict, room: dict, approved: bool):
@@ -542,7 +539,19 @@ async def notify_booking_decision(booking: dict, room: dict, approved: bool):
             f"Please contact the admin office if you'd like to discuss alternatives.</p>"
         ),
     )
-    await asyncio.gather(send_email(booking["email"], subject, body, html_body), send_whatsapp(booking["phone"], body))
+    await asyncio.gather(
+        send_email(booking["email"], subject, body, html_body),
+        send_whatsapp(
+            booking["phone"],
+            "booking_not_approved",
+            [
+                booking["requester_name"],
+                room["name"],
+                format_day_long(start),
+                booking.get("admin_note") or "No further details were given.",
+            ],
+        ),
+    )
 
 
 async def notify_admin_new_request(booking: dict, room: dict):
@@ -580,6 +589,23 @@ async def notify_admin_new_request(booking: dict, room: dict):
     if settings.admin_notify_email:
         tasks.append(send_email(settings.admin_notify_email, subject, body, html_body))
     if settings.admin_notify_whatsapp:
-        tasks.append(send_whatsapp(settings.admin_notify_whatsapp, body))
+        # ADMIN_NOTIFY_WHATSAPP may list several numbers, comma-separated.
+        for number in settings.admin_notify_whatsapp.split(","):
+            if number.strip():
+                tasks.append(
+                    send_whatsapp(
+                        number.strip(),
+                        "admin_new_request",
+                        [
+                            booking["requester_name"],
+                            booking["congregation"],
+                            room["name"],
+                            format_day_short(start),
+                            format_time(start),
+                            booking["headcount"],
+                            booking["purpose"],
+                        ],
+                    )
+                )
     if tasks:
         await asyncio.gather(*tasks)

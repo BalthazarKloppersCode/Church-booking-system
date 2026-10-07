@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app import ical_feed, whatsapp
 from app.config import settings
 from app.database import ensure_indexes
 from app.notifications import _email_credentials, email_is_configured
@@ -46,6 +47,12 @@ async def startup():
         print(f"[email] configured: sending as {sender} via {settings.smtp_host}:{settings.smtp_port} (password length {len(password)})", flush=True)
     else:
         print("[email] NOT configured: set EMAIL_FROM and EMAIL_PASSWORD — booking emails will be skipped", flush=True)
+    if whatsapp.is_configured():
+        print(f"[whatsapp] configured: phone number id {settings.whatsapp_phone_number_id.strip()}, templates in '{settings.whatsapp_template_language}'", flush=True)
+    else:
+        print("[whatsapp] NOT configured: set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN — WhatsApp messages will be skipped", flush=True)
+    if ical_feed.enabled():
+        print("[calendar] pulling church events from the Google Calendar iCal feed", flush=True)
 
 
 @app.get("/api/health")

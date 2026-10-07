@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 from bson import ObjectId
 
-from app import notifications
+from app import notifications, whatsapp
 from app.config import settings
 from app.notifications import build_confirmation_email, notify_booking_confirmed
 
@@ -207,8 +207,8 @@ async def test_a_failing_email_send_never_raises(monkeypatch):
 async def test_whatsapp_confirmation_stays_short(monkeypatch):
     sent = []
 
-    async def fake_whatsapp(phone, message):
-        sent.append((phone, message))
+    async def fake_whatsapp(phone, template, params):
+        sent.append((phone, template, params))
 
     async def fake_email(*args, **kwargs):
         pass
@@ -217,10 +217,13 @@ async def test_whatsapp_confirmation_stays_short(monkeypatch):
     monkeypatch.setattr(notifications, "send_email", fake_email)
     await notify_booking_confirmed(make_booking(), ROOM)
 
-    phone, message = sent[0]
+    phone, template, params = sent[0]
     assert phone == "+27820000000"
-    assert "confirmed" in message and "emailed to you" in message
+    assert template == "booking_confirmed"
+    message = whatsapp.render(template, params)
+    assert "confirmed" in message and "/my-bookings" in message
     assert "Prestik" not in message
+    assert len(params) == 7
 
 
 def test_room_equipment_and_location_come_from_manage_rooms():
@@ -303,8 +306,12 @@ async def test_every_notification_builds_and_sends(monkeypatch):
     async def fake_email(to, subject, text, html=None):
         emails.append((to, subject))
 
-    async def fake_whatsapp(phone, message):
+    async def fake_whatsapp(phone, template, params):
         whatsapps.append(phone)
+        # Every template must be real and be given exactly the variables it declares.
+        assert template in whatsapp.TEMPLATES
+        assert len(params) == len(set(re.findall(r"\{\{(\d+)\}\}", whatsapp.TEMPLATES[template][1])))
+        whatsapp.render(template, params)
 
     monkeypatch.setattr(notifications, "send_email", fake_email)
     monkeypatch.setattr(notifications, "send_whatsapp", fake_whatsapp)

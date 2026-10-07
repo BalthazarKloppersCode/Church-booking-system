@@ -33,6 +33,18 @@ class Settings(BaseSettings):
 
     whatsapp_phone_number_id: str = ""
     whatsapp_access_token: str = ""
+    whatsapp_api_version: str = "v23.0"
+    # The language code the message templates were approved under in Meta
+    # (e.g. "en" or "en_US") — it must match exactly.
+    whatsapp_template_language: str = "en"
+    # Phone numbers typed the local way (082 123 4567) are turned into
+    # international form using this country code (27 = South Africa).
+    whatsapp_default_country_code: str = "27"
+
+    # Read-only pull of a Google Calendar via its "secret address in iCal
+    # format" (Calendar settings -> Integrate calendar). No Google Cloud
+    # project needed. Ignored if the service-account sync below is set up.
+    google_calendar_ical_url: str = ""
 
     # Google Calendar two-way sync (e.g. "LINKTREE Durbanville AM Events").
     # google_service_account_json is the *contents* of a Google service

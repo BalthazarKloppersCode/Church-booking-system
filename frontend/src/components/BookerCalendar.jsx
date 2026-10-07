@@ -82,6 +82,7 @@ export default function BookerCalendar({ onPick, onClose }) {
             title: `${e.title} (church calendar)`,
             start,
             end,
+            allDay: Boolean(e.all_day),
             status: 'external',
           };
         });
