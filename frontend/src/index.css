@@ -24,6 +24,11 @@
 
   --radius: 10px;
   --shadow: 0 1px 2px rgba(35,40,35,0.06), 0 4px 16px rgba(35,40,35,0.06);
+
+  /* Fields (§6): the focus ring, and the one shadow reserved for things that
+     genuinely float — pickers, dropdown lists. */
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--navy) 14%, transparent);
+  --float: 0 4px 8px -3px rgba(26,30,36,0.06), 0 16px 32px -8px rgba(26,30,36,0.14);
 }
 
 * { box-sizing: border-box; }
@@ -97,24 +102,190 @@ a:focus-visible {
   padding: 24px;
 }
 
+/* Fields — DESIGN_DIRECTION.md §6: 48px public / 40px admin, radius 8, 1px
+   --line, label above at 13/500, navy border + soft ring on focus. */
 .field { margin-bottom: 18px; }
 .field label {
   display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink-2);
   margin-bottom: 6px;
 }
-.field input, .field select, .field textarea {
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: 0 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
   color: var(--ink);
+  font-size: 16px;
 }
+.field input:not([type="checkbox"]):not([type="radio"]) { height: 48px; }
+.field textarea { padding: 12px 14px; }
+.field input:not([type="checkbox"]):not([type="radio"]):focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: var(--focus-ring);
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--ink-3); }
+.admin-scope .field input:not([type="checkbox"]):not([type="radio"]) { height: 40px; font-size: 15px; }
+.admin-scope .field textarea { font-size: 15px; }
 .field-row { display: flex; gap: 14px; }
 .field-row .field { flex: 1; }
+.field-sublabel { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-bottom: 6px; }
+.field-hint { font-size: 12.5px; color: var(--ink-3); margin-top: 7px; }
+
+/* Styled select + date picker field (components/fields/Select.jsx, DatePicker.jsx) */
+.select-field { position: relative; }
+.select-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+.select-admin .select-button { height: 40px; font-size: 15px; }
+.select-button.is-placeholder { color: var(--ink-3); }
+.select-button:focus-visible,
+.select-button[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: var(--focus-ring);
+}
+.select-button:disabled { background: var(--hover); color: var(--ink-3); cursor: not-allowed; }
+.select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-chevron { flex: none; color: var(--ink-3); }
+.select-required-proxy {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.select-list {
+  z-index: 1100;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow: auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--float);
+  outline: none;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 16px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.select-list.select-admin .select-option { min-height: 36px; font-size: 15px; }
+.select-option.is-highlighted { background: var(--hover); }
+.select-option.is-selected { font-weight: 600; color: var(--navy); }
+.select-option.is-disabled { color: var(--ink-3); cursor: default; }
+
+.date-pop {
+  z-index: 1100;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--float);
+}
+.date-pop-head { display: flex; align-items: center; justify-content: space-between; height: 44px; }
+.date-pop-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.date-nav {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.date-nav:hover { background: var(--hover); color: var(--ink); }
+.date-grid { display: grid; justify-content: center; }
+.date-weekday { display: grid; place-items: center; height: 28px; font-size: 12.5px; font-weight: 500; color: var(--ink-3); }
+.date-day {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.date-day:hover { background: var(--hover); }
+.date-day.is-outside { color: var(--ink-3); }
+.date-day.is-today { box-shadow: inset 0 0 0 1.5px var(--navy); }
+.date-day.is-selected { background: var(--navy); color: #fff; box-shadow: none; }
+.date-day:focus-visible { outline: 2px solid var(--navy); outline-offset: -2px; }
+
+/* Time as a list of half-hour slots (components/fields/TimeChips.jsx) */
+.time-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.time-chip {
+  position: relative;
+  height: 38px;
+  min-width: 62px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+/* 38px to the eye, 44px to a thumb (§5): the extra 3px above and below sit inside the 7px gap. */
+.time-chip::after { content: ''; position: absolute; inset: -3px 0; }
+.time-chip:hover:not(:disabled):not(.is-on) { background: var(--hover); }
+.time-chip.is-on { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: 500; }
+.time-chip:disabled {
+  background: var(--stone);
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line);
+  cursor: not-allowed;
+}
+.time-chip:focus-visible { outline: none; border-color: var(--navy); box-shadow: var(--focus-ring); }
+.time-chips-toggle {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.time-chips-toggle:disabled { color: var(--ink-3); cursor: default; }
 
 .badge {
   display: inline-flex;

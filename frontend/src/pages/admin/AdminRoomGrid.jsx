@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { formatTimeRange } from '../../lib/formatDate';
+import DatePicker from '../../components/fields/DatePicker';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -32,12 +33,7 @@ export default function AdminRoomGrid() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1>Room grid</h1>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 8 }}
-        />
+        <DatePicker size="admin" aria-label="Day" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: 240 }} />
       </div>
 
       {loading && <p>Loading…</p>}

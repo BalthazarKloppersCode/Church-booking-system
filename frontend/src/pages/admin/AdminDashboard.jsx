@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
 import AdminAnalyticsCharts from './AdminAnalyticsCharts';
 import { formatDay, formatTime } from '../../lib/formatDate';
+import DatePicker from '../../components/fields/DatePicker';
+import Select from '../../components/fields/Select';
 
 const EMPTY_FILTER = {
   dateMode: '', // '', 'after', 'before', 'between'
@@ -114,7 +116,7 @@ export default function AdminDashboard() {
 
           <div className="field">
             <label>Date range</label>
-            <select
+            <Select size="admin"
               value={filter.dateMode}
               onChange={(e) => setFilter({ ...filter, dateMode: e.target.value })}
             >
@@ -122,14 +124,13 @@ export default function AdminDashboard() {
               <option value="after">After</option>
               <option value="before">Before</option>
               <option value="between">Between</option>
-            </select>
+            </Select>
           </div>
 
           {(filter.dateMode === 'after' || filter.dateMode === 'between') && (
             <div className="field">
               <label>From</label>
-              <input
-                type="date"
+              <DatePicker size="admin"
                 value={filter.dateAfter}
                 onChange={(e) => setFilter({ ...filter, dateAfter: e.target.value })}
               />
@@ -138,8 +139,7 @@ export default function AdminDashboard() {
           {(filter.dateMode === 'before' || filter.dateMode === 'between') && (
             <div className="field">
               <label>Until</label>
-              <input
-                type="date"
+              <DatePicker size="admin"
                 value={filter.dateBefore}
                 onChange={(e) => setFilter({ ...filter, dateBefore: e.target.value })}
               />
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
                 <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
-                    style={{ width: 'auto' }}
+                    style={{ minWidth: 160 }}
                     checked={filter.congregations.includes(c.name)}
                     onChange={() => toggleCongregation(c.name)}
                   />
@@ -180,13 +180,13 @@ export default function AdminDashboard() {
           {!!filter.dateMode && filter.congregations.length > 0 && (
             <div className="field">
               <label>Combine date range and congregations with</label>
-              <select
+              <Select size="admin"
                 value={filter.combinator}
                 onChange={(e) => setFilter({ ...filter, combinator: e.target.value })}
               >
                 <option value="AND">AND — must match both</option>
                 <option value="OR">OR — match either</option>
-              </select>
+              </Select>
             </div>
           )}
 
@@ -221,15 +221,15 @@ export default function AdminDashboard() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ fontSize: 18 }}>Analytics</h2>
-        <select
+        <Select size="admin"
           value={chartDays}
           onChange={(e) => setChartDays(Number(e.target.value))}
-          style={{ width: 'auto' }}
+          style={{ minWidth: 160 }}
         >
           {RANGE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <div style={{ marginBottom: 32 }}>
         {analyticsLoading && <p>Loading analytics…</p>}

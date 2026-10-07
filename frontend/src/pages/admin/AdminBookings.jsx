@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { formatDay, formatDayLong, formatRelative, formatTimeRange } from '../../lib/formatDate';
+import DateTimeField from '../../components/fields/DateTimeField';
+import Select from '../../components/fields/Select';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -31,15 +33,11 @@ function SortBar({ sortKey, setSortKey, sortDir, setSortDir }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
       <label style={{ fontSize: 13, color: 'var(--ink-2)' }}>Sort by</label>
-      <select
-        value={sortKey}
-        onChange={(e) => setSortKey(e.target.value)}
-        style={{ padding: '6px 10px', border: '1px solid var(--line)', borderRadius: 8 }}
-      >
+      <Select size="admin" aria-label="Sort by" value={sortKey} onChange={(e) => setSortKey(e.target.value)} style={{ minWidth: 220 }}>
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
-      </select>
+      </Select>
       <button
         type="button"
         className="btn btn-secondary"
@@ -307,30 +305,30 @@ function BookingList({
               <div className="field-row">
                 <div className="field">
                   <label>Room</label>
-                  <select value={editForm.room_id} onChange={(e) => setEditForm({ ...editForm, room_id: e.target.value })}>
+                  <Select size="admin" value={editForm.room_id} onChange={(e) => setEditForm({ ...editForm, room_id: e.target.value })}>
                     {rooms.map((r) => (
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="field">
                   <label>Status</label>
-                  <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                  <Select size="admin" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                     <option value="cancelled">Cancelled</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
               <div className="field-row">
                 <div className="field">
                   <label>Start</label>
-                  <input type="datetime-local" value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} />
+                  <DateTimeField value={editForm.start_time} onChange={(e) => setEditForm({ ...editForm, start_time: e.target.value })} />
                 </div>
                 <div className="field">
                   <label>End</label>
-                  <input type="datetime-local" value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} />
+                  <DateTimeField value={editForm.end_time} onChange={(e) => setEditForm({ ...editForm, end_time: e.target.value })} />
                 </div>
               </div>
               <div className="field">

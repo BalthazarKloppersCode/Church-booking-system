@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   formatDateRange,
   formatDay,
+  formatDayFull,
   formatDayLong,
   formatDayShort,
   formatRelative,
@@ -80,6 +81,12 @@ describe('formatDayShort', () => {
 describe('formatDayLong', () => {
   it('spells out weekday, day, month, and year', () => {
     expect(formatDayLong(new Date(2026, 9, 14))).toBe('Wednesday 14 October 2026');
+  });
+});
+
+describe('formatDayFull', () => {
+  it('always includes the year, even in the current year', () => {
+    expect(formatDayFull(new Date(2026, 9, 14))).toBe('Wed 14 October 2026');
   });
 });
 

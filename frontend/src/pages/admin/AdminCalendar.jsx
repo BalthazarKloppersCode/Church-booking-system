@@ -10,6 +10,9 @@ import '../../lib/calendarTheme.css';
 import { api } from '../../lib/api';
 import { formatDay, formatTimeRange } from '../../lib/formatDate';
 import { CALENDAR_FORMATS } from '../../lib/calendarFormats';
+import DatePicker from '../../components/fields/DatePicker';
+import DateTimeField from '../../components/fields/DateTimeField';
+import Select from '../../components/fields/Select';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -148,16 +151,18 @@ export default function AdminCalendar() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h1>Calendar</h1>
-        <select
+        <Select
+          size="admin"
+          aria-label="Filter by room"
           value={roomFilter}
           onChange={(e) => setRoomFilter(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid var(--line)', borderRadius: 8 }}
+          style={{ width: 220 }}
         >
           <option value="">All rooms</option>
           {rooms.map((r) => (
             <option key={r.id} value={r.id}>{r.name}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 10 }}>
         Click and drag on an empty slot to add a booking directly — admin-created bookings are
@@ -292,49 +297,38 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
 
         <div className="field">
           <label>Room</label>
-          <select required value={form.room_id} onChange={(e) => setForm({ ...form, room_id: e.target.value })}>
+          <Select size="admin" aria-label="Room" required value={form.room_id} onChange={(e) => setForm({ ...form, room_id: e.target.value })}>
             <option value="" disabled>Select a room</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>{r.name} (cap. {r.capacity})</option>
             ))}
-          </select>
+          </Select>
         </div>
 
-        <div className="field-row">
-          <div className="field">
-            <label>Start</label>
-            <input
-              type="datetime-local"
-              required
-              value={form.start}
-              onChange={(e) => setForm({ ...form, start: e.target.value })}
-            />
-          </div>
-          <div className="field">
-            <label>End</label>
-            <input
-              type="datetime-local"
-              required
-              value={form.end}
-              onChange={(e) => setForm({ ...form, end: e.target.value })}
-            />
-          </div>
+        <div className="field">
+          <label>Start</label>
+          <DateTimeField required value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>End</label>
+          <DateTimeField required value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
         </div>
 
         <div className="field">
           <label>Repeats</label>
-          <select value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })}>
+          <Select size="admin" aria-label="Repeats" value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })}>
             {REPEAT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </select>
+          </Select>
         </div>
         {form.repeat && (
           <div className="field">
             <label>Until</label>
-            <input
-              type="date"
+            <DatePicker
+              size="admin"
               required
+              aria-label="Until"
               value={form.until}
               onChange={(e) => setForm({ ...form, until: e.target.value })}
             />
@@ -352,7 +346,9 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
 
         <div className="field">
           <label>Congregation / group</label>
-          <select
+          <Select
+            size="admin"
+            aria-label="Congregation / group"
             required
             value={form.congregation}
             onChange={(e) => setForm({ ...form, congregation: e.target.value })}
@@ -361,7 +357,7 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
             {congregations.map((c) => (
               <option key={c.id} value={c.name}>{c.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="field-row">
@@ -397,12 +393,12 @@ function NewBookingModal({ slot, rooms, defaultRoomId, congregations, purposes, 
 
         <div className="field">
           <label>Purpose</label>
-          <select required value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+          <Select size="admin" aria-label="Purpose" required value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
             <option value="" disabled>Select a purpose</option>
             {purposes.map((p) => (
               <option key={p.id} value={p.name}>{p.name}</option>
             ))}
-          </select>
+          </Select>
           {form.purpose === 'Other' && (
             <input
               required

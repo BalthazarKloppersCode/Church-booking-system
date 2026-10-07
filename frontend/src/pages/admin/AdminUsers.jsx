@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import Select from '../../components/fields/Select';
 
 const EMPTY_USER = { name: '', email: '', phone: '', area_id: '', password: '' };
 
@@ -86,7 +87,7 @@ export default function AdminUsers() {
           </div>
           <div className="field">
             <label>Area</label>
-            <select
+            <Select size="admin"
               value={form.area_id}
               onChange={(e) => setForm({ ...form, area_id: e.target.value })}
             >
@@ -94,7 +95,7 @@ export default function AdminUsers() {
               {areas.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
             <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 4 }}>
               Drives whether this person's bookings get the 2-week auto-approve window —
               set it to the area they belong to (e.g. Northern Hub), not their congregation.

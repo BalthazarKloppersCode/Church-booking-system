@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import Select from '../../components/fields/Select';
 
 const AMENITY_OPTIONS = ['Microphone', 'Sound system', 'AV', 'TV & HDMI', 'Chairs'];
 
@@ -104,7 +105,7 @@ export default function AdminRooms() {
           </div>
           <div className="field">
             <label>Type</label>
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <Select size="admin" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               <option value="classroom">Classroom</option>
               <option value="training_hall">Training hall</option>
               <option value="main_hall">Main hall</option>
@@ -112,7 +113,7 @@ export default function AdminRooms() {
               <option value="lounge">Lounge</option>
               <option value="leap">Leap</option>
               <option value="barista">Barista shop</option>
-            </select>
+            </Select>
           </div>
           <div className="field">
             <label>Capacity</label>

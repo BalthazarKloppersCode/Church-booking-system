@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import Select from '../../components/fields/Select';
 
 const RESOURCES = {
   areas: {
@@ -150,7 +151,7 @@ function ListManager({ resourceKey, resource, areas }) {
         {resourceKey === 'congregations' && (
           <div className="field">
             <label>Area</label>
-            <select
+            <Select size="admin"
               required
               value={form.area_id}
               onChange={(e) => setForm({ ...form, area_id: e.target.value })}
@@ -159,7 +160,7 @@ function ListManager({ resourceKey, resource, areas }) {
               {areas.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
-            </select>
+            </Select>
           </div>
         )}
 

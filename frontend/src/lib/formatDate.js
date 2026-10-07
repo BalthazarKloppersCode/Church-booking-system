@@ -29,6 +29,11 @@ export function formatDayLong(d) {
   return format(toDate(d), 'EEEE d MMMM yyyy');
 }
 
+/** "Wed 14 October 2026" — a date field's closed state; always shows the year. */
+export function formatDayFull(d) {
+  return format(toDate(d), 'EEE d MMMM yyyy');
+}
+
 /** "10:00" — 24-hour, no seconds. */
 export function formatTime(d) {
   return format(toDate(d), 'HH:mm');

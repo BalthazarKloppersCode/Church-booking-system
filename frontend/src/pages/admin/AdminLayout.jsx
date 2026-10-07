@@ -101,7 +101,7 @@ export default function AdminLayout() {
           </>
         )}
       </aside>
-      <main style={{ flex: 1, padding: '32px 40px', minWidth: 0 }}>
+      <main className="admin-scope" style={{ flex: 1, padding: '32px 40px', minWidth: 0 }}>
         <Outlet />
       </main>
     </div>

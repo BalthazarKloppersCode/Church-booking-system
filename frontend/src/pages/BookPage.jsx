@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import BuildingMap from '../components/BuildingMap';
 import { formatDay, formatSlot } from '../lib/formatDate';
+import { SLOT_MINUTES, fromMinutes, toMinutes } from '../lib/timeSlots';
+import DatePicker from '../components/fields/DatePicker';
+import DurationChips from '../components/fields/DurationChips';
+import Select from '../components/fields/Select';
+import TimeChips from '../components/fields/TimeChips';
 
 // Pulls in react-big-calendar/date-fns — its own lazy chunk so the default
 // booking flow doesn't pay for it unless someone actually opens the calendar.
@@ -189,6 +194,18 @@ export default function BookPage() {
       endTime: toTimeValue(end),
     }));
     setShowCalendar(false);
+  }
+
+  // Moving the start keeps the booking the same length, so picking a later
+  // slot doesn't silently shrink it (or leave the end before the start).
+  function handleStartTimeChange(e) {
+    const newStart = e.target.value;
+    const duration = Math.max(SLOT_MINUTES, toMinutes(search.endTime) - toMinutes(search.startTime));
+    setSearch((s) => ({
+      ...s,
+      startTime: newStart,
+      endTime: fromMinutes(toMinutes(newStart) + duration),
+    }));
   }
 
   async function handleSearch(e) {
@@ -410,32 +427,28 @@ export default function BookPage() {
           </button>
           <div className="field">
             <label>Date</label>
-            <input
-              type="date"
+            <DatePicker
               required
+              aria-label="Date"
               value={search.date}
               onChange={(e) => setSearch({ ...search, date: e.target.value })}
             />
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Start time</label>
-              <input
-                type="time"
-                required
-                value={search.startTime}
-                onChange={(e) => setSearch({ ...search, startTime: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label>End time</label>
-              <input
-                type="time"
-                required
-                value={search.endTime}
-                onChange={(e) => setSearch({ ...search, endTime: e.target.value })}
-              />
-            </div>
+          <div className="field">
+            <label>Start time</label>
+            <TimeChips
+              aria-label="Start time"
+              value={search.startTime}
+              onChange={handleStartTimeChange}
+            />
+          </div>
+          <div className="field">
+            <label>How long?</label>
+            <DurationChips
+              start={search.startTime}
+              end={search.endTime}
+              onChange={(e) => setSearch({ ...search, endTime: e.target.value })}
+            />
           </div>
           <div className="field-row">
             <div className="field">
@@ -451,14 +464,15 @@ export default function BookPage() {
             </div>
             <div className="field">
               <label>Room type</label>
-              <select
+              <Select
+                aria-label="Room type"
                 value={search.type}
                 onChange={(e) => setSearch({ ...search, type: e.target.value })}
               >
                 {ROOM_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
           <button className="btn btn-primary btn-block" disabled={loading}>
@@ -590,8 +604,9 @@ export default function BookPage() {
                 No congregations set up yet — ask the admin office.
               </p>
             ) : (
-              <select
+              <Select
                 required
+                aria-label="Congregation / group"
                 value={form.congregation}
                 onChange={(e) => setForm({ ...form, congregation: e.target.value })}
               >
@@ -599,7 +614,7 @@ export default function BookPage() {
                 {congregationOptions.map((c) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
           <div className="field-row">
@@ -629,8 +644,9 @@ export default function BookPage() {
                 No booking purposes have been set up yet — ask the admin office to add one before booking.
               </p>
             ) : (
-              <select
+              <Select
                 required
+                aria-label="What's this booking for?"
                 value={form.purpose}
                 onChange={(e) =>
                   setForm({
@@ -644,7 +660,7 @@ export default function BookPage() {
                 {purposes.map((p) => (
                   <option key={p.id} value={p.name}>{p.name}</option>
                 ))}
-              </select>
+              </Select>
             )}
             {form.purpose === 'Other' && (
               <input
