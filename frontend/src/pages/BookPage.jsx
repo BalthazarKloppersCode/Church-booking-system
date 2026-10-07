@@ -41,7 +41,18 @@ function toTimeValue(d) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Funeral / memorial'];
+const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Birthday', 'Funeral / memorial'];
+
+// Shown as soon as the event type is picked, before anything is submitted.
+const CANCELLATION_NOTICES = {
+  Wedding:
+    'Please note: Joshua Generation Pinehurst reserves the right to cancel the venue booking up to three months before the event date.',
+  Birthday:
+    'Please note: Joshua Generation Pinehurst reserves the right to cancel the venue booking up to two months before the event date.',
+};
+
+const CONDITIONS_ACKNOWLEDGEMENT =
+  'I have read and accept the venue booking conditions and understand my responsibilities when using the Joshua Generation Pinehurst venue.';
 
 export default function BookPage() {
   const [step, setStep] = useState(0);
@@ -72,6 +83,7 @@ export default function BookPage() {
   });
 
   const [result, setResult] = useState(null);
+  const [acceptedConditions, setAcceptedConditions] = useState(false);
 
   const [congregationOptions, setCongregationOptions] = useState([]);
   const [bookerToken, setBookerToken] = useState(() => localStorage.getItem('booker_token') || '');
@@ -259,6 +271,7 @@ export default function BookPage() {
         end_time,
         ...form,
         is_private_event: isPrivateEvent,
+        accepted_conditions: isPrivateEvent && acceptedConditions,
       });
 
       let loungeBooking = null;
@@ -274,6 +287,7 @@ export default function BookPage() {
             end_time,
             ...form,
             is_private_event: isPrivateEvent,
+            accepted_conditions: isPrivateEvent && acceptedConditions,
           });
         } catch (err) {
           loungeError = err.message;
@@ -291,6 +305,7 @@ export default function BookPage() {
             end_time,
             ...form,
             is_private_event: isPrivateEvent,
+            accepted_conditions: isPrivateEvent && acceptedConditions,
           });
         } catch (err) {
           hebrewsError = err.message;
@@ -656,6 +671,23 @@ export default function BookPage() {
                 onChange={(e) => setForm({ ...form, purpose_other: e.target.value })}
               />
             )}
+            {CANCELLATION_NOTICES[form.purpose] && (
+              <p
+                role="note"
+                style={{
+                  margin: '10px 0 0',
+                  padding: '12px 14px',
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: 'var(--wait)',
+                  background: 'var(--wait-bg)',
+                  border: '1px solid var(--wait-bd)',
+                  borderRadius: 8,
+                }}
+              >
+                {CANCELLATION_NOTICES[form.purpose]}
+              </p>
+            )}
           </div>
 
           {selectedRoom.room.type === 'training_hall' && (
@@ -729,8 +761,34 @@ export default function BookPage() {
               <p style={{ color: 'var(--wait)', margin: 0, fontSize: 13 }}>
                 {bookingKind === 'private'
                   ? "This is a private event, so it always needs admin approval before it's confirmed."
-                  : "Weddings and funerals always need admin approval before they're confirmed."}
+                  : "Weddings, birthdays and funerals always need admin approval before they're confirmed."}
               </p>
+            </div>
+          )}
+
+          {isPrivateEvent && (
+            <div className="field">
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 400,
+                  color: 'var(--ink)',
+                  lineHeight: 1.5,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  required
+                  style={{ width: 18, height: 18, marginTop: 2, flex: 'none' }}
+                  checked={acceptedConditions}
+                  onChange={(e) => setAcceptedConditions(e.target.checked)}
+                />
+                <span>{CONDITIONS_ACKNOWLEDGEMENT}</span>
+              </label>
             </div>
           )}
 

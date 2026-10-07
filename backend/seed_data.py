@@ -59,6 +59,7 @@ BOOKING_PURPOSES = [
     "Committee / admin meeting",
     "Outreach / community event",
     "Wedding",
+    "Birthday",
     "Funeral / memorial",
     "Conference / seminar",
     "Other",

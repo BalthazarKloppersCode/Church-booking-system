@@ -239,6 +239,10 @@ class BookingCreate(BaseModel):
         description="Weddings, funerals, and other private (non-congregation) events always require admin approval",
     )
     notes: Optional[str] = None
+    accepted_conditions: bool = Field(
+        default=False,
+        description="True when the booker ticked the private-venue conditions acknowledgement on the form. Recorded with the booking.",
+    )
 
     @field_validator("start_time", "end_time")
     @classmethod

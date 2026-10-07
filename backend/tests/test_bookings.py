@@ -228,3 +228,25 @@ async def test_list_bookings_filters_by_email(client, rooms_col, booker_headers)
     results = resp.json()
     assert len(results) == 1
     assert results[0]["email"] == "a@example.com"
+
+
+async def test_accepted_conditions_acknowledgement_is_recorded(client, rooms_col, bookings_col, booker_headers):
+    from bson import ObjectId
+
+    room_id = await make_room(rooms_col)
+    accepted = await client.post(
+        "/api/bookings",
+        json=booking_payload(room_id, is_private_event=True, accepted_conditions=True),
+        headers=booker_headers,
+    )
+    assert accepted.status_code == 200
+    stored = await bookings_col.find_one({"_id": ObjectId(accepted.json()["id"])})
+    assert stored["accepted_conditions"] is True
+
+    # Not sent (church bookings, older clients) defaults to False rather than failing.
+    plain = await client.post(
+        "/api/bookings", json=booking_payload(room_id, start_offset_days=6), headers=booker_headers
+    )
+    assert plain.status_code == 200
+    stored = await bookings_col.find_one({"_id": ObjectId(plain.json()["id"])})
+    assert stored["accepted_conditions"] is False
