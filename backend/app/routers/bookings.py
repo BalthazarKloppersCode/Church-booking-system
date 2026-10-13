@@ -4,7 +4,7 @@ from typing import List, Optional
 from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from app import calendar_sync, google_calendar
+from app import calendar_sync, church_events
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
 from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
@@ -50,6 +50,9 @@ async def create_booking(
 
     free = await _is_room_free(payload.room_id, payload.start_time, payload.end_time)
     if not free:
+        event = await church_events.blocking_event(payload.room_id, payload.start_time, payload.end_time)
+        if event:
+            raise HTTPException(409, f"{room['name']} is in use for “{event['title']}” (on the church calendar) at that time")
         raise HTTPException(409, "This room is already booked for that time slot")
 
     if not user:
@@ -193,7 +196,7 @@ async def list_external_calendar_events(
     now = datetime.utcnow()
     start = start_after or (now - timedelta(days=7))
     end = start_before or (now + timedelta(days=90))
-    events = await google_calendar.list_external_events(start, end)
+    events = await church_events.events_with_rooms(start, end)
     return [ExternalCalendarEvent(**e) for e in events]
 
 

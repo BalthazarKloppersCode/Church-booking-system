@@ -61,8 +61,10 @@ export default function BookerCalendar({ onPick, onClose }) {
       // Falls back to [] on its own if the church Google Calendar isn't
       // connected — never blocks the booking calendar from loading.
       api.listExternalCalendarEvents({ start_after, start_before }).catch(() => []),
+      api.listRooms().catch(() => []),
     ])
-      .then(([entries, externalEvents]) => {
+      .then(([entries, externalEvents, rooms]) => {
+        const roomName = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
         const bookingEvents = entries.map((e, i) => {
           const start = new Date(e.start_time);
           const end = new Date(e.end_time);
@@ -77,9 +79,10 @@ export default function BookerCalendar({ onPick, onClose }) {
         const churchEvents = externalEvents.map((e, i) => {
           const start = new Date(e.start_time);
           const end = new Date(e.end_time);
+          const names = e.room_ids.map((id) => roomName[id]).filter(Boolean).join(', ');
           return {
             id: `external-${i}`,
-            title: `${e.title} (church calendar)`,
+            title: `${e.title}${names ? ` — ${names}` : ''} (church calendar)`,
             start,
             end,
             allDay: Boolean(e.all_day),

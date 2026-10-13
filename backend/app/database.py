@@ -11,6 +11,9 @@ congregations_collection = db["congregations"]
 booking_purposes_collection = db["booking_purposes"]
 areas_collection = db["areas"]
 users_collection = db["users"]
+# Which rooms each church-calendar event occupies, keyed by the event's UID
+# (a repeating event is one UID, so one assignment covers every date).
+event_rooms_collection = db["calendar_event_rooms"]
 
 
 async def ensure_indexes():
@@ -29,3 +32,5 @@ async def ensure_indexes():
     await booking_purposes_collection.create_index("name", unique=True)
     await areas_collection.create_index("name", unique=True)
     await users_collection.create_index("email", unique=True)
+    await event_rooms_collection.create_index("uid", unique=True)
+    await event_rooms_collection.create_index("room_ids")

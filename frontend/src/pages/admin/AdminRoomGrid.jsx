@@ -11,6 +11,7 @@ export default function AdminRoomGrid() {
   const [date, setDate] = useState(todayStr());
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [churchEvents, setChurchEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,12 +19,15 @@ export default function AdminRoomGrid() {
       setLoading(true);
       const dayStart = new Date(`${date}T00:00:00`).toISOString();
       const dayEnd = new Date(`${date}T23:59:59`).toISOString();
-      const [roomList, dayBookings] = await Promise.all([
+      const [roomList, dayBookings, events] = await Promise.all([
         api.listRooms(),
         api.listBookings({ start_after: dayStart, start_before: dayEnd }),
+        // Church-calendar events that hold a room count as taken, like a booking.
+        api.listExternalCalendarEvents({ start_after: dayStart, start_before: dayEnd }).catch(() => []),
       ]);
       setRooms(roomList);
       setBookings(dayBookings.filter((b) => b.status === 'approved' || b.status === 'pending'));
+      setChurchEvents(events.filter((e) => e.room_ids.length));
       setLoading(false);
     }
     load();
@@ -40,9 +44,12 @@ export default function AdminRoomGrid() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
         {rooms.map((room) => {
-          const roomBookings = bookings
-            .filter((b) => b.room_id === room.id)
-            .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+          const roomBookings = [
+            ...bookings.filter((b) => b.room_id === room.id).map((b) => ({ ...b, key: b.id })),
+            ...churchEvents
+              .filter((e) => e.room_ids.includes(room.id))
+              .map((e, i) => ({ ...e, key: `event-${e.uid}-${i}`, church: true })),
+          ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
 
           return (
             <div key={room.id} className="card">
@@ -57,16 +64,16 @@ export default function AdminRoomGrid() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {roomBookings.map((b) => (
                     <div
-                      key={b.id}
+                      key={b.key}
                       style={{
                         fontSize: 13,
                         padding: '6px 10px',
                         borderRadius: 6,
-                        background: b.status === 'pending' ? 'var(--wait-bg)' : 'var(--ok-bg)',
+                        background: b.church ? 'var(--hover)' : b.status === 'pending' ? 'var(--wait-bg)' : 'var(--ok-bg)',
                       }}
                     >
-                      <strong>{formatTimeRange(b.start_time, b.end_time)}</strong>{' '}
-                      {b.congregation}
+                      <strong>{b.all_day ? 'All day' : formatTimeRange(b.start_time, b.end_time)}</strong>{' '}
+                      {b.church ? `${b.title} (church calendar)` : b.congregation}
                       {b.status === 'pending' ? ' (awaiting the office)' : ''}
                     </div>
                   ))}

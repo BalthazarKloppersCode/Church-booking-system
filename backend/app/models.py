@@ -417,12 +417,23 @@ class ExternalCalendarEvent(BaseModel):
     start_time: datetime
     end_time: datetime
     all_day: bool = False
+    # Identifies the event (every date of a repeating event shares it) and the
+    # rooms an admin has assigned it to — see app/church_events.py.
+    uid: str = ""
+    room_ids: List[str] = []
 
     @field_serializer("start_time", "end_time")
     def _serialize_as_utc(self, v: datetime) -> str:
         if v.tzinfo is None:
             v = v.replace(tzinfo=timezone.utc)
         return v.isoformat()
+
+
+class EventRoomsUpdate(BaseModel):
+    """Admin: set which rooms a church-calendar event occupies (empty list = none)."""
+    uid: str = Field(min_length=1, max_length=500)
+    title: str = Field(default="", max_length=300)
+    room_ids: List[str] = []
 
 
 # ---------- Admin ----------

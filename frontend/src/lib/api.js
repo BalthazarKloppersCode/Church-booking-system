@@ -124,4 +124,8 @@ export const api = {
   adminUpdateBooking: (id, payload) =>
     request(`/api/admin/bookings/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminDeleteBooking: (id) => request(`/api/admin/bookings/${id}`, { method: 'DELETE' }),
+  // Which rooms a church-calendar event occupies — saved per event series, so
+  // every date of a repeating event is covered. Returns { uid, room_ids, clashes }.
+  adminSetEventRooms: (uid, title, room_ids) =>
+    request('/api/admin/calendar-events/rooms', { method: 'PUT', body: JSON.stringify({ uid, title, room_ids }) }),
 };

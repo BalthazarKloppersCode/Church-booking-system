@@ -6,6 +6,28 @@ from httpx import ASGITransport, AsyncClient
 from mongomock_motor import AsyncMongoMockClient
 
 
+@pytest.fixture(autouse=True)
+def no_real_world(monkeypatch):
+    """
+    Tests must never talk to the real world, whatever is in the developer's
+    backend/.env: no WhatsApp or email sends, no reading the church calendar.
+    A test that needs one of these sets it itself (with a fake transport).
+    """
+    from app.config import settings
+
+    for name in (
+        "whatsapp_phone_number_id",
+        "whatsapp_access_token",
+        "email_password",
+        "google_service_account_json",
+        "google_calendar_id",
+        "google_calendar_ical_url",
+        "admin_notify_email",
+        "admin_notify_whatsapp",
+    ):
+        monkeypatch.setattr(settings, name, "")
+
+
 @pytest_asyncio.fixture
 async def app_state(monkeypatch):
     """
@@ -15,6 +37,7 @@ async def app_state(monkeypatch):
     """
     from app import auth as auth_module
     from app import calendar_sync as calendar_sync_module
+    from app import church_events as church_events_module
     from app import database as db_module
     from app.config import settings
     from app.rate_limit import limiter
@@ -33,8 +56,10 @@ async def app_state(monkeypatch):
     congregations_col = mock_db["congregations"]
     areas_col = mock_db["areas"]
     users_col = mock_db["users"]
+    event_rooms_col = mock_db["calendar_event_rooms"]
 
     modules = (
+        church_events_module,
         db_module,
         rooms_router,
         bookings_router,
@@ -59,6 +84,8 @@ async def app_state(monkeypatch):
             monkeypatch.setattr(module, "areas_collection", areas_col)
         if hasattr(module, "users_collection"):
             monkeypatch.setattr(module, "users_collection", users_col)
+        if hasattr(module, "event_rooms_collection"):
+            monkeypatch.setattr(module, "event_rooms_collection", event_rooms_col)
 
     monkeypatch.setattr(settings, "admin_setup_secret", "test-setup-secret")
     monkeypatch.setattr(settings, "auto_approve_window_days", 14)
@@ -72,6 +99,7 @@ async def app_state(monkeypatch):
         "congregations": congregations_col,
         "areas": areas_col,
         "users": users_col,
+        "event_rooms": event_rooms_col,
     }
 
 

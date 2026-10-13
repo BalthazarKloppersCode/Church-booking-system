@@ -16,7 +16,7 @@ from app.auth import (
     verify_password,
 )
 from app.config import settings
-from app.database import admins_collection, bookings_collection, rooms_collection
+from app.database import admins_collection, bookings_collection, event_rooms_collection, rooms_collection
 from app.models import (
     AdminBookingCreate,
     AdminBookingUpdate,
@@ -26,10 +26,11 @@ from app.models import (
     Booking,
     BookingAdminAction,
     BookingStatus,
+    EventRoomsUpdate,
     RecurrenceRule,
     Token,
 )
-from app import calendar_sync
+from app import calendar_sync, church_events
 from app.date_format import format_day, to_local
 from app.notifications import notify_booking_confirmed, notify_booking_decision
 from app.rate_limit import limiter
@@ -318,6 +319,36 @@ async def admin_update_booking(
             background_tasks.add_task(calendar_sync.sync_updated, updated, updated["room_name"])
 
     return _booking_out(updated)
+
+
+@router.put("/calendar-events/rooms")
+async def set_calendar_event_rooms(payload: EventRoomsUpdate, admin=Depends(get_current_admin)):
+    """
+    Choose which rooms a church-calendar event occupies. Saved against the
+    event's UID, so a repeating event is set once for every date. An empty list
+    clears it. Nothing already booked is cancelled — any existing bookings that
+    now overlap the event are returned as `clashes` for the admin to sort out.
+    """
+    room_ids = list(dict.fromkeys(payload.room_ids))  # de-duplicate, keep order
+    for room_id in room_ids:
+        found = await rooms_collection.find_one({"_id": ObjectId(room_id)}) if ObjectId.is_valid(room_id) else None
+        if not found or not found.get("active", True):
+            raise HTTPException(404, "One of those rooms wasn't found")
+
+    if room_ids:
+        await event_rooms_collection.update_one(
+            {"uid": payload.uid},
+            {"$set": {"uid": payload.uid, "title": payload.title, "room_ids": room_ids, "updated_at": datetime.utcnow()}},
+            upsert=True,
+        )
+    else:
+        await event_rooms_collection.delete_one({"uid": payload.uid})
+
+    return {
+        "uid": payload.uid,
+        "room_ids": room_ids,
+        "clashes": await church_events.clashes(payload.uid, room_ids),
+    }
 
 
 @router.delete("/bookings/{booking_id}")

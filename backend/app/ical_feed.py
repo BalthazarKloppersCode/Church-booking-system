@@ -71,8 +71,22 @@ async def _load_calendar() -> Optional[icalendar.Calendar]:
     return calendar
 
 
-def _extract(calendar: icalendar.Calendar, start: datetime, end: datetime) -> list[dict]:
+def _only(calendar: icalendar.Calendar, uids: set[str]) -> icalendar.Calendar:
+    """A copy holding just the wanted events (plus timezone definitions) — so
+    expanding repeats only does the work for events we actually care about."""
+    sub = icalendar.Calendar()
+    for key, value in calendar.items():
+        sub[key] = value
+    for component in calendar.subcomponents:
+        if component.name == "VTIMEZONE" or (component.name == "VEVENT" and str(component.get("UID", "")) in uids):
+            sub.add_component(component)
+    return sub
+
+
+def _extract(calendar: icalendar.Calendar, start: datetime, end: datetime, uids: Optional[set[str]] = None) -> list[dict]:
     tz = ZoneInfo(settings.church_timezone)
+    if uids is not None:
+        calendar = _only(calendar, uids)
     found = recurring_ical_events.of(calendar).between(
         start.replace(tzinfo=timezone.utc), end.replace(tzinfo=timezone.utc)
     )
@@ -89,6 +103,7 @@ def _extract(calendar: icalendar.Calendar, start: datetime, end: datetime) -> li
             continue
         events.append(
             {
+                "uid": str(component.get("UID", "")),
                 "title": str(component.get("SUMMARY", "")).strip() or "(Untitled event)",
                 "start_time": start_time,
                 "end_time": end_time,
@@ -99,15 +114,15 @@ def _extract(calendar: icalendar.Calendar, start: datetime, end: datetime) -> li
     return events[:MAX_EVENTS]
 
 
-async def list_events(start_after: datetime, start_before: datetime) -> list[dict]:
-    """Events on the church calendar between two naive-UTC datetimes."""
+async def list_events(start_after: datetime, start_before: datetime, uids: Optional[set[str]] = None) -> list[dict]:
+    """Events on the church calendar between two naive-UTC datetimes (only those with the given UIDs, if any are given)."""
     if not enabled():
         return []
     calendar = await _load_calendar()
     if calendar is None:
         return []
     try:
-        return await asyncio.to_thread(_extract, calendar, start_after, start_before)
+        return await asyncio.to_thread(_extract, calendar, start_after, start_before, uids)
     except Exception as e:
         print(f"[calendar feed error] could not read events: {type(e).__name__}", flush=True)
         return []

@@ -158,7 +158,9 @@ def _parse_gcal_datetime(node: dict) -> datetime:
     return ical_feed.to_utc_naive(d, ZoneInfo(settings.church_timezone))[0]
 
 
-async def list_external_events(start_after: datetime, start_before: datetime) -> list[dict]:
+async def list_external_events(
+    start_after: datetime, start_before: datetime, uids: Optional[set[str]] = None
+) -> list[dict]:
     """
     Events already on the church calendar that this app did NOT create —
     lets the booker/admin calendar views show existing church events
@@ -168,7 +170,7 @@ async def list_external_events(start_after: datetime, start_before: datetime) ->
     """
     if not _enabled():
         # No service account — fall back to the read-only iCal feed, if set.
-        return await ical_feed.list_events(start_after, start_before)
+        return await ical_feed.list_events(start_after, start_before, uids)
     time_min = start_after if start_after.tzinfo else start_after.replace(tzinfo=timezone.utc)
     time_max = start_before if start_before.tzinfo else start_before.replace(tzinfo=timezone.utc)
     params = {
@@ -190,9 +192,14 @@ async def list_external_events(start_after: datetime, start_before: datetime) ->
         end = item.get("end") or {}
         if not start or not end:
             continue
+        # Every date of a repeating event shares the series id, like an iCal UID.
+        uid = item.get("recurringEventId") or item.get("id") or ""
+        if uids is not None and uid not in uids:
+            continue
         try:
             events.append(
                 {
+                    "uid": uid,
                     "title": item.get("summary") or "(Untitled event)",
                     "start_time": _parse_gcal_datetime(start),
                     "end_time": _parse_gcal_datetime(end),

@@ -5,6 +5,7 @@ from typing import List, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app import church_events
 from app.auth import get_current_admin
 from app.database import rooms_collection, bookings_collection
 from app.models import Room, RoomCreate, RoomUpdate, RoomSuggestionRequest, RoomSuggestion
@@ -76,7 +77,10 @@ async def _is_room_free(room_id: str, start: datetime, end: datetime) -> bool:
         "start_time": {"$lt": end},
         "end_time": {"$gt": start},
     })
-    return overlap is None
+    if overlap is not None:
+        return False
+    # A church-calendar event with this room assigned holds it too.
+    return await church_events.blocking_event(room_id, start, end) is None
 
 
 @router.post("/suggest", response_model=List[RoomSuggestion])
