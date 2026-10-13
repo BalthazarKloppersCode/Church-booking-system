@@ -121,6 +121,9 @@ export const api = {
   adminCancelBooking: (id) => request(`/api/admin/bookings/${id}/cancel`, { method: 'POST' }),
   adminCancelSeries: (seriesId) =>
     request(`/api/admin/bookings/series/${seriesId}/cancel`, { method: 'POST' }),
+  // Every room of one multi-room event (that date only).
+  adminCancelGroup: (groupId) =>
+    request(`/api/admin/bookings/group/${groupId}/cancel`, { method: 'POST' }),
   adminUpdateBooking: (id, payload) =>
     request(`/api/admin/bookings/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminDeleteBooking: (id) => request(`/api/admin/bookings/${id}`, { method: 'DELETE' }),

@@ -224,6 +224,12 @@ export default function AdminCalendar() {
       {selectedEvent && (
         <EventDetailModal
           booking={selectedEvent}
+          // Other rooms booked for this same event (admin multi-room bookings).
+          alsoBooked={
+            selectedEvent.group_id
+              ? bookingEvents.map((e) => e.booking).filter((b) => b.group_id === selectedEvent.group_id && b.id !== selectedEvent.id)
+              : []
+          }
           onClose={() => setSelectedEvent(null)}
           onChanged={() => {
             setSelectedEvent(null);
@@ -235,7 +241,7 @@ export default function AdminCalendar() {
   );
 }
 
-function EventDetailModal({ booking, onClose, onChanged }) {
+function EventDetailModal({ booking, alsoBooked = [], onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -245,6 +251,19 @@ function EventDetailModal({ booking, onClose, onChanged }) {
     setError('');
     try {
       await api.adminCancelBooking(booking.id);
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  async function cancelAllRooms() {
+    if (!confirm(`Cancel this event in all ${alsoBooked.length + 1} rooms?`)) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.adminCancelGroup(booking.group_id);
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -274,6 +293,11 @@ function EventDetailModal({ booking, onClose, onChanged }) {
       <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
         {formatDay(booking.start_time)} · {formatTimeRange(booking.start_time, booking.end_time)}
       </p>
+      {alsoBooked.length > 0 && (
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
+          Same event also in: <strong>{alsoBooked.map((b) => b.room_name).join(', ')}</strong>
+        </p>
+      )}
       <p style={{ fontSize: 13, marginBottom: 4 }}>{booking.purpose}{booking.purpose_other ? `: ${booking.purpose_other}` : ''}</p>
       <p style={{ fontSize: 13, marginBottom: 16 }}>
         Requested by {booking.requester_name} · {booking.email} · {booking.phone}
@@ -282,10 +306,15 @@ function EventDetailModal({ booking, onClose, onChanged }) {
         {bookingBadge(booking).label}
       </span>
 
-      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelOne}>
-          Cancel this booking
+          {alsoBooked.length ? `Cancel ${booking.room_name} only` : 'Cancel this booking'}
         </button>
+        {alsoBooked.length > 0 && (
+          <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelAllRooms}>
+            Cancel all {alsoBooked.length + 1} rooms
+          </button>
+        )}
         {booking.series_id && (
           <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelSeries}>
             Cancel entire series

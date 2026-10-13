@@ -306,8 +306,13 @@ class RecurrenceRule(BaseModel):
         return _to_naive_utc(v)
 
 
+MAX_ROOMS_PER_BOOKING = 20
+
+
 class AdminBookingCreate(BaseModel):
-    room_id: str
+    # One room (`room_id`, as before) or several for the same event (`room_ids`).
+    room_id: Optional[str] = None
+    room_ids: List[str] = []
     requester_name: str
     congregation: str
     email: EmailStr
@@ -329,6 +334,16 @@ class AdminBookingCreate(BaseModel):
     def _normalize_start_end(cls, v: datetime) -> datetime:
         return _to_naive_utc(v)
 
+    @model_validator(mode="after")
+    def _at_least_one_room(self):
+        ids = list(dict.fromkeys(self.room_ids or ([self.room_id] if self.room_id else [])))
+        if not ids:
+            raise ValueError("Choose at least one room")
+        if len(ids) > MAX_ROOMS_PER_BOOKING:
+            raise ValueError(f"A booking can cover at most {MAX_ROOMS_PER_BOOKING} rooms")
+        self.room_ids = ids
+        return self
+
 
 class Booking(BaseModel):
     id: str
@@ -348,6 +363,8 @@ class Booking(BaseModel):
     status: BookingStatus
     admin_note: Optional[str] = None
     series_id: Optional[str] = None
+    # Bookings for the same event in several rooms (admin-created) share this.
+    group_id: Optional[str] = None
     google_event_id: Optional[str] = Field(
         default=None,
         description="Id of this booking's event on the synced Google Calendar, once pushed. Internal bookkeeping.",

@@ -40,7 +40,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
   const [congregations, setCongregations] = useState([]);
   const [purposes, setPurposes] = useState([]);
   const [form, setForm] = useState({
-    room_id: defaultRoomId || '',
+    room_ids: defaultRoomId ? [defaultRoomId] : [],
     requester_name: '',
     congregation: '',
     email: '',
@@ -64,13 +64,27 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
     api.listBookingPurposes().then(setPurposes);
   }, []);
 
+  function toggleRoom(id) {
+    setForm((f) => ({
+      ...f,
+      room_ids: f.room_ids.includes(id) ? f.room_ids.filter((r) => r !== id) : [...f.room_ids, id],
+    }));
+  }
+
+  const chosenRooms = rooms.filter((r) => form.room_ids.includes(r.id));
+  const totalCapacity = chosenRooms.reduce((sum, r) => sum + r.capacity, 0);
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (!form.room_ids.length) {
+      setError('Choose at least one room.');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
-        room_id: form.room_id,
+        room_ids: form.room_ids,
         requester_name: form.requester_name,
         congregation: form.congregation,
         email: form.email,
@@ -107,15 +121,36 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
       <form onSubmit={handleSubmit}>
         {error && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
-        <div className="field">
-          <label>Room</label>
-          <Select size="admin" aria-label="Room" required value={form.room_id} onChange={(e) => setForm({ ...form, room_id: e.target.value })}>
-            <option value="" disabled>Select a room</option>
+        <fieldset className="field" style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
+          <legend style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, padding: 0 }}>
+            Rooms{chosenRooms.length > 1 ? ` · ${chosenRooms.length} selected` : ''}
+          </legend>
+          <div
+            style={{
+              display: 'grid',
+              gap: 0,
+              maxHeight: 190,
+              overflowY: 'auto',
+              border: '1px solid var(--line)',
+              borderRadius: 8,
+              padding: '4px 10px',
+              background: 'var(--paper)',
+            }}
+          >
             {rooms.map((r) => (
-              <option key={r.id} value={r.id}>{r.name} (cap. {r.capacity})</option>
+              <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                <input type="checkbox" style={{ width: 'auto' }} checked={form.room_ids.includes(r.id)} onChange={() => toggleRoom(r.id)} />
+                <span>{r.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>cap. {r.capacity}</span>
+              </label>
             ))}
-          </Select>
-        </div>
+          </div>
+          <p className="field-hint" style={{ margin: '6px 0 0' }}>
+            {chosenRooms.length > 1
+              ? `Each room is booked for the same time, and the headcount only has to fit them together (${totalCapacity} seats).`
+              : 'Tick more than one room if the same event uses several.'}
+          </p>
+        </fieldset>
 
         <div className="field">
           <label>Start</label>
@@ -244,7 +279,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
         </p>
 
         <button className="btn btn-primary btn-block" disabled={submitting}>
-          {submitting ? 'Creating…' : form.repeat ? 'Create repeating bookings' : 'Create booking'}
+          {submitting ? 'Creating…' : form.repeat ? 'Create repeating bookings' : chosenRooms.length > 1 ? `Create booking for ${chosenRooms.length} rooms` : 'Create booking'}
         </button>
       </form>
     </SideSheet>

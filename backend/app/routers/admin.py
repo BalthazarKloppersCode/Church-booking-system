@@ -198,6 +198,42 @@ async def reject_booking(
     return _booking_out(updated)
 
 
+def _join_names(names: List[str]) -> str:
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _combined_room(rooms: List[dict]) -> dict:
+    """
+    One room-shaped record standing in for every room of a multi-room booking,
+    so the single confirmation names them all and lists the equipment, location
+    and set-up notes of each (instead of only the first room's).
+    """
+    if len(rooms) == 1:
+        return rooms[0]
+
+    def unique(values):
+        return list(dict.fromkeys(v for v in values if v))
+
+    def per_room(key, separator):
+        notes = [(r["name"], (r.get(key) or "").strip()) for r in rooms]
+        notes = [(name, text) for name, text in notes if text]
+        # Every room says the same thing (or only one has a note): no need to label it.
+        if len({text for _, text in notes}) <= 1 and len(notes) in (0, 1, len(rooms)):
+            return notes[0][1] if notes else None
+        return separator.join(f"{name}: {text}" for name, text in notes)
+
+    return {
+        **rooms[0],
+        "name": _join_names([r["name"] for r in rooms]),
+        "amenities": unique(a for r in rooms for a in r.get("amenities", [])),
+        "location": "; ".join(unique(r.get("location") for r in rooms)) or None,
+        "setup_notes": per_room("setup_notes", "\n"),
+        "booking_message": per_room("booking_message", "\n\n"),
+    }
+
+
 @router.post("/bookings", response_model=dict)
 async def admin_create_booking(
     payload: AdminBookingCreate, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)
@@ -209,16 +245,31 @@ async def admin_create_booking(
     booking is created per occurrence, all sharing a series_id; every
     occurrence is checked for room conflicts before any of them are created,
     so a series is all-or-nothing rather than partially booked.
+
+    An event can take several rooms at once (`room_ids`): each room gets its own
+    booking for the same time, tied together by a group_id so they can be
+    cancelled together. The headcount is the whole event's, so it only has to fit
+    in the rooms combined. Every room of every occurrence is checked first.
     """
-    room = await rooms_collection.find_one({"_id": ObjectId(payload.room_id)})
-    if not room:
-        raise HTTPException(404, "Room not found")
+    rooms = []
+    for room_id in payload.room_ids:
+        room = await rooms_collection.find_one({"_id": ObjectId(room_id)}) if ObjectId.is_valid(room_id) else None
+        if not room:
+            raise HTTPException(404, "Room not found")
+        rooms.append(room)
     if payload.end_time <= payload.start_time:
         raise HTTPException(400, "End time must be after start time")
-    if payload.headcount > room["capacity"]:
-        raise HTTPException(
-            400, f"{room['name']} can only hold {room['capacity']} people — please pick a larger room."
-        )
+    if len(rooms) == 1:
+        if payload.headcount > rooms[0]["capacity"]:
+            raise HTTPException(
+                400, f"{rooms[0]['name']} can only hold {rooms[0]['capacity']} people — please pick a larger room."
+            )
+    else:
+        total = sum(r["capacity"] for r in rooms)
+        if payload.headcount > total:
+            raise HTTPException(
+                400, f"These rooms together hold {total} people — add another room or lower the headcount."
+            )
 
     if payload.recurrence:
         occurrences = _generate_occurrences(payload.start_time, payload.end_time, payload.recurrence)
@@ -228,44 +279,54 @@ async def admin_create_booking(
     # Each conflict check is its own DB round-trip — for a long recurring
     # series (up to MAX_RECURRING_OCCURRENCES) that's a lot of them, so run
     # them concurrently rather than one at a time.
-    is_free = await asyncio.gather(
-        *(_is_room_free(payload.room_id, start, end) for start, end in occurrences)
-    )
-    conflicts = [
-        format_day(to_local(start))
-        for (start, end), free in zip(occurrences, is_free)
-        if not free
-    ]
-    if conflicts:
+    checks = [(room, start, end) for room in rooms for start, end in occurrences]
+    is_free = await asyncio.gather(*(_is_room_free(str(room["_id"]), start, end) for room, start, end in checks))
+    busy_days: dict = {}
+    for (room, start, _), free in zip(checks, is_free):
+        if not free:
+            busy_days.setdefault(room["name"], []).append(format_day(to_local(start)))
+    if busy_days:
         raise HTTPException(
-            409, f"{room['name']} is already booked on: {', '.join(conflicts)} — nothing was created."
+            409,
+            "; ".join(f"{name} is already booked on: {', '.join(days)}" for name, days in busy_days.items())
+            + " — nothing was created.",
         )
 
     series_id = uuid4().hex if len(occurrences) > 1 else None
     now = datetime.utcnow()
-    base_fields = payload.model_dump(exclude={"recurrence", "start_time", "end_time"})
-    docs = [
-        {
-            **base_fields,
-            "start_time": start,
-            "end_time": end,
-            "room_name": room["name"],
-            "status": BookingStatus.approved.value,
-            "admin_note": None,
-            "series_id": series_id,
-            "created_at": now,
-            "updated_at": now,
-        }
-        for start, end in occurrences
-    ]
+    base_fields = payload.model_dump(exclude={"recurrence", "start_time", "end_time", "room_id", "room_ids"})
+    docs = []
+    for start, end in occurrences:
+        group_id = uuid4().hex if len(rooms) > 1 else None
+        for room in rooms:
+            docs.append(
+                {
+                    **base_fields,
+                    "room_id": str(room["_id"]),
+                    "start_time": start,
+                    "end_time": end,
+                    "room_name": room["name"],
+                    "status": BookingStatus.approved.value,
+                    "admin_note": None,
+                    "series_id": series_id,
+                    "group_id": group_id,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
     result = await bookings_collection.insert_many(docs)
     # We already have every field of every created doc in `docs` — no need
     # to read them back from the DB one at a time, we just have to attach
     # the ids Mongo assigned.
     created_docs = [{**doc, "_id": _id} for doc, _id in zip(docs, result.inserted_ids)]
 
-    background_tasks.add_task(notify_booking_confirmed, created_docs[0], room)
-    background_tasks.add_task(calendar_sync.sync_created_many, created_docs, room["name"])
+    # One confirmation for the event (not one per room), naming every room.
+    combined = _combined_room(rooms)
+    first = {**created_docs[0], "room_name": combined["name"]}
+    background_tasks.add_task(notify_booking_confirmed, first, combined)
+    for room in rooms:
+        mine = [d for d in created_docs if d["room_id"] == str(room["_id"])]
+        background_tasks.add_task(calendar_sync.sync_created_many, mine, room["name"])
 
     return {
         "created_count": len(created_docs),
@@ -361,29 +422,30 @@ async def admin_delete_booking(booking_id: str, background_tasks: BackgroundTask
     return {"ok": True}
 
 
-@router.post("/bookings/series/{series_id}/cancel")
-async def admin_cancel_series(series_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+async def _cancel_all_where(field: str, value: str, background_tasks: BackgroundTasks) -> dict:
+    live = {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]}
     # Snapshot which bookings had a synced Google event *before* the bulk
     # update, since that's the only place their google_event_id is visible.
     to_unsync = [
-        b
-        async for b in bookings_collection.find(
-            {
-                "series_id": series_id,
-                "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
-                "google_event_id": {"$ne": None},
-            }
-        )
+        b async for b in bookings_collection.find({field: value, "status": live, "google_event_id": {"$ne": None}})
     ]
     result = await bookings_collection.update_many(
-        {
-            "series_id": series_id,
-            "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
-        },
+        {field: value, "status": live},
         {"$set": {"status": BookingStatus.cancelled.value, "updated_at": datetime.utcnow()}},
     )
     background_tasks.add_task(calendar_sync.sync_removed_many, to_unsync)
     return {"cancelled_count": result.modified_count}
+
+
+@router.post("/bookings/series/{series_id}/cancel")
+async def admin_cancel_series(series_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+    return await _cancel_all_where("series_id", series_id, background_tasks)
+
+
+@router.post("/bookings/group/{group_id}/cancel")
+async def admin_cancel_group(group_id: str, background_tasks: BackgroundTasks, admin=Depends(get_current_admin)):
+    """Cancels every room of one multi-room event (that date only, for a repeating series)."""
+    return await _cancel_all_where("group_id", group_id, background_tasks)
 
 
 @router.get("/dashboard")
