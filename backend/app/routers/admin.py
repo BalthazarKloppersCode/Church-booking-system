@@ -465,14 +465,17 @@ async def dashboard_stats(admin=Depends(get_current_admin)):
 
     # These four queries don't depend on each other — run them concurrently
     # instead of waiting on each round-trip in turn.
+    this_week = {"status": BookingStatus.approved.value, "start_time": {"$gte": now, "$lte": week_end}}
+
+    async def _count_this_week():
+        # A multi-room event is one booking: count single-room ones plus each group once.
+        singles = await bookings_collection.count_documents({**this_week, "group_id": None})
+        groups = await bookings_collection.distinct("group_id", this_week)
+        return singles + len([g for g in groups if g])
+
     pending_count, upcoming_week_count, total_rooms, upcoming = await asyncio.gather(
         bookings_collection.count_documents({"status": BookingStatus.pending.value}),
-        bookings_collection.count_documents(
-            {
-                "status": BookingStatus.approved.value,
-                "start_time": {"$gte": now, "$lte": week_end},
-            }
-        ),
+        _count_this_week(),
         rooms_collection.count_documents({"active": True}),
         _fetch_upcoming(),
     )
@@ -513,6 +516,7 @@ async def analytics(days: int = 30, admin=Depends(get_current_admin)):
     by_purpose: Counter = Counter()
     by_room: Counter = Counter()
     weekly: Counter = Counter()
+    counted_groups: set = set()
 
     async for b in bookings_collection.find(
         {
@@ -520,9 +524,15 @@ async def analytics(days: int = 30, admin=Depends(get_current_admin)):
             "status": {"$nin": [BookingStatus.cancelled.value, BookingStatus.rejected.value]},
         }
     ):
+        # Room use counts every room; demand (who/why/when) counts a multi-room
+        # event once, however many rooms it took.
+        by_room[b["room_name"]] += 1
+        if b.get("group_id"):
+            if b["group_id"] in counted_groups:
+                continue
+            counted_groups.add(b["group_id"])
         by_congregation[b["congregation"]] += 1
         by_purpose[b.get("purpose") or "Other"] += 1
-        by_room[b["room_name"]] += 1
         week_start = b["created_at"] - timedelta(days=b["created_at"].weekday())
         weekly[week_start.strftime("%Y-%m-%d")] += 1
 

@@ -174,7 +174,7 @@ async def list_bookings_calendar(
         if start_before:
             query["start_time"]["$lte"] = start_before
 
-    projection = {"_id": 0, "room_name": 1, "start_time": 1, "end_time": 1, "status": 1}
+    projection = {"_id": 0, "room_name": 1, "start_time": 1, "end_time": 1, "status": 1, "group_id": 1}
     return [
         CalendarEntry(**b)
         async for b in bookings_collection.find(query, projection).sort("start_time", 1)

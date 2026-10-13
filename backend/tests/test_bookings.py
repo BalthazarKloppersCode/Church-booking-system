@@ -139,7 +139,7 @@ async def test_calendar_endpoint_omits_requester_details(client, rooms_col, book
     entries = resp.json()
     assert any(e["room_name"] == "Calendar Room" for e in entries)
     for entry in entries:
-        assert set(entry.keys()) == {"room_name", "start_time", "end_time", "status"}
+        assert set(entry.keys()) == {"room_name", "start_time", "end_time", "status", "group_id"}
 
 
 async def test_booking_requires_login(client, rooms_col):

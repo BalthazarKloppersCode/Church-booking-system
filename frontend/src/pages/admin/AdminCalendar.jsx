@@ -8,6 +8,7 @@ import enUS from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../../lib/calendarTheme.css';
 import { api } from '../../lib/api';
+import { groupBookings } from '../../lib/bookingGroups';
 import { formatDay, formatTimeRange } from '../../lib/formatDate';
 import { CALENDAR_FORMATS } from '../../lib/calendarFormats';
 import Select from '../../components/fields/Select';
@@ -40,6 +41,20 @@ const COLLAPSED_MIN = new Date(1970, 0, 1, 6, 0, 0);
 const COLLAPSED_MAX = new Date(1970, 0, 1, 21, 59, 59);
 const FULL_MIN = new Date(1970, 0, 1, 0, 0, 0);
 const FULL_MAX = new Date(1970, 0, 1, 23, 59, 59);
+
+// A booking in several rooms is one card: who it's for, then each room on its own line.
+function EventCard({ event }) {
+  const b = event.booking;
+  if (!b || b.rooms.length < 2) return <>{event.title}</>;
+  return (
+    <div>
+      <strong>{b.congregation} ({b.headcount})</strong>
+      {b.rooms.map((r) => (
+        <div key={r.id} style={{ fontSize: 11, lineHeight: 1.3 }}>{r.name}</div>
+      ))}
+    </div>
+  );
+}
 
 function Modal({ title, onClose, children }) {
   return (
@@ -95,7 +110,8 @@ export default function AdminCalendar() {
     ]).then(([bookings, external]) => {
       const filtered = bookings.filter((b) => b.status === 'approved' || b.status === 'pending');
       setBookingEvents(
-        filtered.map((b) => ({
+        // An event in several rooms is one card, not one strip per room.
+        groupBookings(filtered).map((b) => ({
           id: b.id,
           title: `${b.room_name} — ${b.congregation} (${b.headcount})`,
           start: new Date(b.start_time),
@@ -180,6 +196,7 @@ export default function AdminCalendar() {
           min={fullDay ? FULL_MIN : COLLAPSED_MIN}
           max={fullDay ? FULL_MAX : COLLAPSED_MAX}
           formats={CALENDAR_FORMATS}
+          components={{ event: EventCard }}
           style={{ height: 650 }}
           eventPropGetter={eventStyleGetter}
           selectable
@@ -224,12 +241,6 @@ export default function AdminCalendar() {
       {selectedEvent && (
         <EventDetailModal
           booking={selectedEvent}
-          // Other rooms booked for this same event (admin multi-room bookings).
-          alsoBooked={
-            selectedEvent.group_id
-              ? bookingEvents.map((e) => e.booking).filter((b) => b.group_id === selectedEvent.group_id && b.id !== selectedEvent.id)
-              : []
-          }
           onClose={() => setSelectedEvent(null)}
           onChanged={() => {
             setSelectedEvent(null);
@@ -241,29 +252,19 @@ export default function AdminCalendar() {
   );
 }
 
-function EventDetailModal({ booking, alsoBooked = [], onClose, onChanged }) {
+function EventDetailModal({ booking, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const multiRoom = booking.rooms.length > 1;
 
+  // One booking in several rooms is cancelled as one: every room of this date.
   async function cancelOne() {
-    if (!confirm('Cancel this booking?')) return;
+    if (!confirm(multiRoom ? `Cancel this booking (${booking.room_name})?` : 'Cancel this booking?')) return;
     setBusy(true);
     setError('');
     try {
-      await api.adminCancelBooking(booking.id);
-      onChanged();
-    } catch (err) {
-      setError(err.message);
-      setBusy(false);
-    }
-  }
-
-  async function cancelAllRooms() {
-    if (!confirm(`Cancel this event in all ${alsoBooked.length + 1} rooms?`)) return;
-    setBusy(true);
-    setError('');
-    try {
-      await api.adminCancelGroup(booking.group_id);
+      if (booking.group_id) await api.adminCancelGroup(booking.group_id);
+      else await api.adminCancelBooking(booking.id);
       onChanged();
     } catch (err) {
       setError(err.message);
@@ -293,11 +294,6 @@ function EventDetailModal({ booking, alsoBooked = [], onClose, onChanged }) {
       <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
         {formatDay(booking.start_time)} · {formatTimeRange(booking.start_time, booking.end_time)}
       </p>
-      {alsoBooked.length > 0 && (
-        <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 4 }}>
-          Same event also in: <strong>{alsoBooked.map((b) => b.room_name).join(', ')}</strong>
-        </p>
-      )}
       <p style={{ fontSize: 13, marginBottom: 4 }}>{booking.purpose}{booking.purpose_other ? `: ${booking.purpose_other}` : ''}</p>
       <p style={{ fontSize: 13, marginBottom: 16 }}>
         Requested by {booking.requester_name} · {booking.email} · {booking.phone}
@@ -308,13 +304,8 @@ function EventDetailModal({ booking, alsoBooked = [], onClose, onChanged }) {
 
       <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelOne}>
-          {alsoBooked.length ? `Cancel ${booking.room_name} only` : 'Cancel this booking'}
+          Cancel this booking
         </button>
-        {alsoBooked.length > 0 && (
-          <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelAllRooms}>
-            Cancel all {alsoBooked.length + 1} rooms
-          </button>
-        )}
         {booking.series_id && (
           <button type="button" className="btn btn-danger" disabled={busy} onClick={cancelSeries}>
             Cancel entire series

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import { groupBookings } from '../../lib/bookingGroups';
 import DateTimeField from '../../components/fields/DateTimeField';
 import Select from '../../components/fields/Select';
 import BookingRow from '../../components/admin/BookingRow';
@@ -81,10 +82,10 @@ export default function AdminBookings() {
   }, []);
 
   const now = new Date();
-  const archived = (bookings || []).filter(
-    (b) => b.status === 'cancelled' || b.status === 'rejected' || new Date(b.end_time) < now
-  );
-  const active = (bookings || []).filter((b) => !archived.includes(b));
+  const isArchived = (b) => b.status === 'cancelled' || b.status === 'rejected' || new Date(b.end_time) < now;
+  // An event in several rooms is one booking here, not one row per room.
+  const archived = groupBookings((bookings || []).filter(isArchived));
+  const active = groupBookings((bookings || []).filter((b) => !isArchived(b)));
 
   async function decide(id, action, note = null) {
     setBusyId(id);
@@ -97,22 +98,23 @@ export default function AdminBookings() {
     }
   }
 
-  async function cancelBooking(id) {
+  async function cancelBooking(b) {
     if (!confirm('Cancel this booking?')) return;
-    setBusyId(id);
+    setBusyId(b.id);
     try {
-      await api.adminCancelBooking(id);
+      if (b.group_id) await api.adminCancelGroup(b.group_id);
+      else await api.adminCancelBooking(b.id);
       await Promise.all([loadAll(), loadPending()]);
     } finally {
       setBusyId(null);
     }
   }
 
-  async function deleteBooking(id) {
+  async function deleteBooking(b) {
     if (!confirm('Permanently delete this booking? This cannot be undone.')) return;
-    setBusyId(id);
+    setBusyId(b.id);
     try {
-      await api.adminDeleteBooking(id);
+      await Promise.all(b.ids.map((id) => api.adminDeleteBooking(id)));
       await Promise.all([loadAll(), loadPending()]);
     } finally {
       setBusyId(null);
@@ -137,16 +139,19 @@ export default function AdminBookings() {
     });
   }
 
-  async function saveEdit(id) {
+  async function saveEdit(b) {
     setError('');
-    setBusyId(id);
+    setBusyId(b.id);
     try {
-      await api.adminUpdateBooking(id, {
-        ...editForm,
+      const { room_id, ...details } = editForm;
+      const changes = {
+        ...details,
         headcount: Number(editForm.headcount),
         start_time: new Date(editForm.start_time).toISOString(),
         end_time: new Date(editForm.end_time).toISOString(),
-      });
+      };
+      // The details of a multi-room booking are shared by all its rooms; the rooms themselves aren't edited here.
+      await Promise.all(b.ids.map((id) => api.adminUpdateBooking(id, b.ids.length > 1 ? changes : { ...changes, room_id })));
       setEditingId(null);
       await Promise.all([loadAll(), loadPending()]);
     } catch (err) {
@@ -292,12 +297,19 @@ function BookingList({
               {error && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
               <div className="field-row">
                 <div className="field">
-                  <label>Room</label>
-                  <Select size="admin" value={editForm.room_id} onChange={(e) => setEditForm({ ...editForm, room_id: e.target.value })}>
-                    {rooms.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </Select>
+                  <label>{b.rooms.length > 1 ? 'Rooms' : 'Room'}</label>
+                  {b.rooms.length > 1 ? (
+                    <p style={{ margin: 0, fontSize: 14 }}>
+                      {b.room_name}
+                      <span className="field-hint" style={{ display: 'block' }}>To change the rooms, cancel this booking and make a new one.</span>
+                    </p>
+                  ) : (
+                    <Select size="admin" value={editForm.room_id} onChange={(e) => setEditForm({ ...editForm, room_id: e.target.value })}>
+                      {rooms.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </Select>
+                  )}
                 </div>
                 <div className="field">
                   <label>Status</label>
@@ -353,7 +365,7 @@ function BookingList({
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" className="btn btn-secondary" onClick={onCancelEdit}>Cancel</button>
-                <button type="button" className="btn btn-primary" disabled={busyId === b.id} onClick={() => onSaveEdit(b.id)}>
+                <button type="button" className="btn btn-primary" disabled={busyId === b.id} onClick={() => onSaveEdit(b)}>
                   Save changes
                 </button>
               </div>
@@ -364,7 +376,7 @@ function BookingList({
                 key={b.id}
                 booking={b}
                 dim
-                menu={[{ label: 'Delete…', destructive: true, disabled: busyId === b.id, onClick: () => onDeleteBooking(b.id) }]}
+                menu={[{ label: 'Delete…', destructive: true, disabled: busyId === b.id, onClick: () => onDeleteBooking(b) }]}
               />
             ) : b.status === 'pending' ? (
               <PendingRow
@@ -375,8 +387,8 @@ function BookingList({
                 onReject={onReject}
                 menu={[
                   { label: 'Edit', onClick: () => onEdit(b) },
-                  { label: 'Cancel booking…', onClick: () => onCancelBooking(b.id) },
-                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b.id) },
+                  { label: 'Cancel booking…', onClick: () => onCancelBooking(b) },
+                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b) },
                 ]}
               />
             ) : (
@@ -385,8 +397,8 @@ function BookingList({
                 booking={b}
                 menu={[
                   { label: 'Edit', onClick: () => onEdit(b) },
-                  b.status !== 'cancelled' && { label: 'Cancel booking…', onClick: () => onCancelBooking(b.id) },
-                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b.id) },
+                  b.status !== 'cancelled' && { label: 'Cancel booking…', onClick: () => onCancelBooking(b) },
+                  { label: 'Delete…', destructive: true, onClick: () => onDeleteBooking(b) },
                 ]}
               />
             )

@@ -395,6 +395,9 @@ class CalendarEntry(BaseModel):
     start_time: datetime
     end_time: datetime
     status: BookingStatus
+    # Opaque id shared by the rooms of one multi-room event, so the calendar can
+    # draw them as a single card. Says nothing about who booked it.
+    group_id: Optional[str] = None
 
     @field_serializer("start_time", "end_time")
     def _serialize_as_utc(self, v: datetime) -> str:

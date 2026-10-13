@@ -9,6 +9,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../lib/calendarTheme.css';
 import { api } from '../lib/api';
 import { CALENDAR_FORMATS } from '../lib/calendarFormats';
+import { groupCalendarEntries } from '../lib/bookingGroups';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -35,6 +36,19 @@ const COLLAPSED_MIN = new Date(1970, 0, 1, 6, 0, 0);
 const COLLAPSED_MAX = new Date(1970, 0, 1, 21, 59, 59);
 const FULL_MIN = new Date(1970, 0, 1, 0, 0, 0);
 const FULL_MAX = new Date(1970, 0, 1, 23, 59, 59);
+
+// An event in several rooms is one card with each room on its own line.
+function EventCard({ event }) {
+  if (!event.rooms || event.rooms.length < 2) return <>{event.title}</>;
+  return (
+    <div>
+      <div>{event.timeLabel}</div>
+      {event.rooms.map((name) => (
+        <div key={name} style={{ lineHeight: 1.3 }}>{name}</div>
+      ))}
+    </div>
+  );
+}
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -65,7 +79,8 @@ export default function BookerCalendar({ onPick, onClose }) {
     ])
       .then(([entries, externalEvents, rooms]) => {
         const roomName = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
-        const bookingEvents = entries.map((e, i) => {
+        // An event in several rooms is one card, not one strip per room.
+        const bookingEvents = groupCalendarEntries(entries).map((e, i) => {
           const start = new Date(e.start_time);
           const end = new Date(e.end_time);
           return {
@@ -74,6 +89,8 @@ export default function BookerCalendar({ onPick, onClose }) {
             start,
             end,
             status: e.status,
+            rooms: e.rooms,
+            timeLabel: `${fmtTime(start)}–${fmtTime(end)}`,
           };
         });
         const churchEvents = externalEvents.map((e, i) => {
@@ -151,6 +168,7 @@ export default function BookerCalendar({ onPick, onClose }) {
             min={fullDay ? FULL_MIN : COLLAPSED_MIN}
             max={fullDay ? FULL_MAX : COLLAPSED_MAX}
             formats={CALENDAR_FORMATS}
+            components={{ event: EventCard }}
             style={{ flex: 1, minHeight: 0 }}
             eventPropGetter={eventStyleGetter}
             selectable

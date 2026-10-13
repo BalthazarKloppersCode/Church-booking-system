@@ -172,3 +172,21 @@ def test_combined_room_notes_are_labelled_only_when_they_differ():
     }
     _, text, _ = build_confirmation_email(booking, differ)
     assert "Main Hall, Foyer and Kitchen" in text and "Room equipment: Chairs, TV & HDMI" in text
+
+
+async def test_a_multi_room_event_counts_once_in_the_dashboard_and_charts(client, rooms_col, sent):
+    admin = await _make_admin(client)
+    hall = await make_room(rooms_col, name="Main Hall", capacity=100)
+    foyer = await make_room(rooms_col, name="Foyer", capacity=80)
+    kitchen = await make_room(rooms_col, name="Kitchen", capacity=20)
+    soon = datetime.utcnow() + timedelta(days=2)
+    window = {"start_time": soon.isoformat(), "end_time": (soon + timedelta(hours=2)).isoformat()}
+    assert (await client.post("/api/admin/bookings", json=payload(room_ids=[hall, foyer], **window), headers=admin)).status_code == 200
+    assert (await client.post("/api/admin/bookings", json=payload(room_ids=[kitchen], headcount=10, **window), headers=admin)).status_code == 200
+
+    assert (await client.get("/api/admin/dashboard", headers=admin)).json()["bookings_this_week"] == 2
+
+    charts = (await client.get("/api/admin/analytics", headers=admin)).json()
+    assert {r["label"]: r["count"] for r in charts["by_room"]} == {"Main Hall": 1, "Foyer": 1, "Kitchen": 1}  # every room used
+    assert sum(c["count"] for c in charts["by_congregation"]) == 2  # two events
+    assert sum(w["count"] for w in charts["weekly"]) == 2

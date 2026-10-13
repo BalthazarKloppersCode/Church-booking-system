@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/api';
+import { groupBookings } from '../../lib/bookingGroups';
 import AdminAnalyticsCharts from './AdminAnalyticsCharts';
 import { formatDayLong } from '../../lib/formatDate';
 import BookingRow from '../../components/admin/BookingRow';
@@ -109,7 +110,7 @@ export default function AdminDashboard() {
     });
 
     results.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
-    setFilterResults(results);
+    setFilterResults(groupBookings(results));
     setFilterOpen(false);
   }
 
@@ -282,7 +283,7 @@ export default function AdminDashboard() {
             {stats.next_bookings.length === 0 && (
               <p style={{ fontSize: 14, color: 'var(--ink-3)', padding: '10px 0 14px', margin: 0 }}>Nothing confirmed yet.</p>
             )}
-            {stats.next_bookings.map((b) => (
+            {groupBookings(stats.next_bookings).map((b) => (
               <BookingRow key={b.id} flat booking={b} meta={null} />
             ))}
           </>
