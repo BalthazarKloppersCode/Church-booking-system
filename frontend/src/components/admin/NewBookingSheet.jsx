@@ -4,6 +4,7 @@ import DatePicker from '../fields/DatePicker';
 import DateTimeField from '../fields/DateTimeField';
 import Select from '../fields/Select';
 import SideSheet from './SideSheet';
+import { countOccurrences, defaultUntil } from '../../lib/recurrence';
 
 const REPEAT_OPTIONS = [
   { value: '', label: "Doesn't repeat" },
@@ -71,6 +72,16 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
     }));
   }
 
+  // Picking a repeat starts "Until" three months out — it used to start on the
+  // first booking's own date, which quietly made a "repeat" of just one booking.
+  function chooseRepeat(repeat) {
+    setForm((f) => {
+      const firstDay = f.start.slice(0, 10);
+      return { ...f, repeat, until: repeat && f.until <= firstDay ? defaultUntil(firstDay) : f.until };
+    });
+  }
+
+  const repeatCount = form.repeat ? countOccurrences(form.start.slice(0, 10), form.until, form.repeat) : 1;
   const chosenRooms = rooms.filter((r) => form.room_ids.includes(r.id));
   const totalCapacity = chosenRooms.reduce((sum, r) => sum + r.capacity, 0);
 
@@ -79,6 +90,10 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
     setError('');
     if (!form.room_ids.length) {
       setError('Choose at least one room.');
+      return;
+    }
+    if (form.repeat && repeatCount < 2) {
+      setError('Choose an "Until" date after the first booking — otherwise only one booking is made.');
       return;
     }
     setSubmitting(true);
@@ -163,7 +178,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
 
         <div className="field">
           <label>Repeats</label>
-          <Select size="admin" aria-label="Repeats" value={form.repeat} onChange={(e) => setForm({ ...form, repeat: e.target.value })}>
+          <Select size="admin" aria-label="Repeats" value={form.repeat} onChange={(e) => chooseRepeat(e.target.value)}>
             {REPEAT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
@@ -179,6 +194,11 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
               value={form.until}
               onChange={(e) => setForm({ ...form, until: e.target.value })}
             />
+            <p className="field-hint" style={{ margin: '6px 0 0', color: repeatCount < 2 ? 'var(--no)' : undefined }}>
+              {repeatCount < 2
+                ? 'Pick a date after the first booking.'
+                : `Creates ${repeatCount} bookings, ${form.repeat === 'monthly' ? 'one a month' : form.repeat === 'biweekly' ? 'one every 2 weeks' : 'one a week'}.`}
+            </p>
           </div>
         )}
 
@@ -279,7 +299,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
         </p>
 
         <button className="btn btn-primary btn-block" disabled={submitting}>
-          {submitting ? 'Creating…' : form.repeat ? 'Create repeating bookings' : chosenRooms.length > 1 ? `Create booking for ${chosenRooms.length} rooms` : 'Create booking'}
+          {submitting ? 'Creating…' : form.repeat ? `Create ${repeatCount} bookings` : chosenRooms.length > 1 ? `Create booking for ${chosenRooms.length} rooms` : 'Create booking'}
         </button>
       </form>
     </SideSheet>

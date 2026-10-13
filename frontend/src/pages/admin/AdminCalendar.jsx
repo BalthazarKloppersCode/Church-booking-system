@@ -14,6 +14,8 @@ import { CALENDAR_FORMATS } from '../../lib/calendarFormats';
 import Select from '../../components/fields/Select';
 import NewBookingSheet from '../../components/admin/NewBookingSheet';
 import ChurchEventSheet from '../../components/admin/ChurchEventSheet';
+import Notice from '../../components/admin/Notice';
+import { describeCreated } from '../../lib/createdSummary';
 import { bookingBadge } from '../../lib/bookingStatus';
 
 const localizer = dateFnsLocalizer({
@@ -95,8 +97,11 @@ export default function AdminCalendar() {
   const [newBookingSlot, setNewBookingSlot] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [churchEvent, setChurchEvent] = useState(null);
+  const [notice, setNotice] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [view, setView] = useState('week');
+  // Held here so Back / Next / Today actually move the visible week or month.
+  const [date, setDate] = useState(() => new Date());
   const [fullDay, setFullDay] = useState(false);
 
   useEffect(() => {
@@ -179,6 +184,7 @@ export default function AdminCalendar() {
         confirmed instantly and can repeat weekly, every 2 weeks, or monthly. Click a grey church
         calendar event to choose which rooms it uses — once, for every date it repeats.
       </p>
+      {notice && <Notice onDismiss={() => setNotice('')}>{notice}</Notice>}
       {(view === 'week' || view === 'day') && (
         <button type="button" className="cal-collapse-toggle" onClick={() => setFullDay((f) => !f)}>
           {fullDay ? '▴ Show less' : '▾ Show full day · 00:00–06:00 and 22:00–24:00 hidden'}
@@ -192,6 +198,8 @@ export default function AdminCalendar() {
           endAccessor="end"
           view={view}
           onView={setView}
+          date={date}
+          onNavigate={setDate}
           views={['month', 'week', 'day']}
           min={fullDay ? FULL_MIN : COLLAPSED_MIN}
           max={fullDay ? FULL_MAX : COLLAPSED_MAX}
@@ -221,7 +229,8 @@ export default function AdminCalendar() {
           slot={newBookingSlot}
           defaultRoomId={roomFilter}
           onClose={() => setNewBookingSlot(null)}
-          onCreated={() => {
+          onCreated={(result) => {
+            setNotice(describeCreated(result));
             setNewBookingSlot(null);
             setRefreshKey((k) => k + 1);
           }}

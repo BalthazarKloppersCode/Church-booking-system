@@ -6,6 +6,8 @@ import Select from '../../components/fields/Select';
 import BookingRow from '../../components/admin/BookingRow';
 import NewBookingSheet from '../../components/admin/NewBookingSheet';
 import PendingRow from '../../components/admin/PendingRow';
+import Notice from '../../components/admin/Notice';
+import { describeCreated } from '../../lib/createdSummary';
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -59,6 +61,7 @@ export default function AdminBookings() {
   const [rooms, setRooms] = useState([]);
   const [pending, setPending] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [notice, setNotice] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -173,6 +176,7 @@ export default function AdminBookings() {
           New booking
         </button>
       </div>
+      {notice && <Notice onDismiss={() => setNotice('')}>{notice}</Notice>}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         {[
           ['all', 'All bookings'],
@@ -238,7 +242,8 @@ export default function AdminBookings() {
       {newOpen && (
         <NewBookingSheet
           onClose={() => setNewOpen(false)}
-          onCreated={() => {
+          onCreated={(result) => {
+            setNotice(describeCreated(result));
             setNewOpen(false);
             loadAll();
             loadPending();

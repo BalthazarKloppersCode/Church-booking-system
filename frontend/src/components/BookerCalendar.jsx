@@ -65,6 +65,8 @@ export default function BookerCalendar({ onPick, onClose }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fullDay, setFullDay] = useState(false);
+  // Held here so Back / Next / Today actually move the visible week.
+  const [date, setDate] = useState(() => new Date());
 
   useEffect(() => {
     const now = new Date();
@@ -162,6 +164,8 @@ export default function BookerCalendar({ onPick, onClose }) {
             startAccessor="start"
             endAccessor="end"
             defaultView="week"
+            date={date}
+            onNavigate={setDate}
             views={['week', 'day']}
             step={60}
             timeslots={1}

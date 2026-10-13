@@ -190,3 +190,13 @@ async def test_a_multi_room_event_counts_once_in_the_dashboard_and_charts(client
     assert {r["label"]: r["count"] for r in charts["by_room"]} == {"Main Hall": 1, "Foyer": 1, "Kitchen": 1}  # every room used
     assert sum(c["count"] for c in charts["by_congregation"]) == 2  # two events
     assert sum(w["count"] for w in charts["weekly"]) == 2
+
+
+async def test_a_repeat_that_would_make_only_one_booking_is_refused(client, rooms_col, bookings_col, sent):
+    admin = await _make_admin(client)
+    hall = await make_room(rooms_col, name="Main Hall", capacity=100)
+    start = datetime.utcnow().replace(minute=0, second=0, microsecond=0) + timedelta(days=5)
+    body = payload(room_ids=[hall], headcount=20, recurrence={"frequency": "weekly", "until": start.isoformat()})
+    resp = await client.post("/api/admin/bookings", json=body, headers=admin)
+    assert resp.status_code == 400 and "only produces one booking" in resp.json()["detail"]
+    assert await bookings_col.count_documents({}) == 0

@@ -273,6 +273,10 @@ async def admin_create_booking(
 
     if payload.recurrence:
         occurrences = _generate_occurrences(payload.start_time, payload.end_time, payload.recurrence)
+        if len(occurrences) < 2:
+            raise HTTPException(
+                400, "That repeat only produces one booking — pick an 'until' date after the first booking."
+            )
     else:
         occurrences = [(payload.start_time, payload.end_time)]
 
