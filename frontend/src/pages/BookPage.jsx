@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import BookingConfirmation from '../components/BookingConfirmation';
 import BuildingMap from '../components/BuildingMap';
+import ForgotPassword from '../components/ForgotPassword';
 import { formatDay, formatSlot } from '../lib/formatDate';
 import { END_SLOTS, SLOT_MINUTES, START_SLOTS, durationLabel, fromMinutes, slotsWithValue, toMinutes } from '../lib/timeSlots';
 import DatePicker from '../components/fields/DatePicker';
@@ -104,6 +105,8 @@ export default function BookPage() {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetNotice, setResetNotice] = useState('');
 
   const [purposes, setPurposes] = useState([]);
   const [purposesLoaded, setPurposesLoaded] = useState(false);
@@ -341,6 +344,23 @@ export default function BookPage() {
           booking's own contact details can still be for someone else, like whoever's actually
           hosting the event.
         </p>
+        {resetNotice && (
+          <p role="status" style={{ margin: '0 0 14px', padding: '9px 12px', fontSize: 14, color: 'var(--ok)', background: 'var(--ok-bg)', border: '1px solid var(--ok-bd)', borderRadius: 8 }}>
+            {resetNotice}
+          </p>
+        )}
+        {forgotOpen ? (
+          <ForgotPassword
+            initialEmail={loginForm.email}
+            onBack={() => setForgotOpen(false)}
+            onDone={(email) => {
+              setLoginForm({ email, password: '' });
+              setResetNotice('Your password has been changed. Log in with the new one.');
+              setLoginError('');
+              setForgotOpen(false);
+            }}
+          />
+        ) : (
         <form className="card" onSubmit={handleBookerLogin}>
           {loginError && <p style={{ color: 'var(--no)', fontSize: 13, marginBottom: 10 }}>{loginError}</p>}
           <div className="field">
@@ -364,7 +384,13 @@ export default function BookPage() {
           <button className="btn btn-primary btn-block" disabled={loginSubmitting}>
             {loginSubmitting ? 'Logging in…' : 'Log in'}
           </button>
+          <p style={{ margin: '12px 0 0', fontSize: 13, textAlign: 'center' }}>
+            <button type="button" className="btn btn-ghost" style={{ padding: 0, minHeight: 0, height: 'auto', textDecoration: 'underline' }} onClick={() => { setForgotOpen(true); setResetNotice(''); }}>
+              Forgot your password?
+            </button>
+          </p>
         </form>
+        )}
         <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 16 }}>
           Don't have an account? Contact the admin office to get one set up.
         </p>

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 
 from bson import ObjectId
@@ -45,6 +46,7 @@ async def update_user(user_id: str, payload: UserUpdate, admin=Depends(get_curre
     update_data = {k: v for k, v in payload.model_dump().items() if v is not None and k != "password"}
     if payload.password:
         update_data["password_hash"] = hash_password(payload.password)
+        update_data["password_changed_at"] = datetime.utcnow()
     if update_data:
         await users_collection.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
     updated = await users_collection.find_one({"_id": ObjectId(user_id)})

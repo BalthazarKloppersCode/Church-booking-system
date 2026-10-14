@@ -24,6 +24,8 @@ async function request(path, options = {}) {
     try {
       const body = await res.json();
       detail = body.detail || detail;
+      // Validation errors arrive as a list of { msg } objects — show them as a sentence.
+      if (Array.isArray(detail)) detail = detail.map((d) => d.msg).filter(Boolean).join('; ') || res.statusText;
     } catch {
       // ignore
     }
@@ -76,6 +78,11 @@ export const api = {
   deleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
   bookerLogin: (payload) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  // Forgotten password: a code is sent to the WhatsApp number saved on the account.
+  forgotPassword: (email) =>
+    request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (email, code, new_password) =>
+    request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, code, new_password }) }),
 
   // Bookings
   createBooking: (payload) =>
@@ -103,6 +110,11 @@ export const api = {
   adminLogin: (payload) =>
     request('/api/admin/login', { method: 'POST', body: JSON.stringify(payload) }),
   adminMe: () => request('/api/admin/me'),
+  adminChangePassword: (current_password, new_password) =>
+    request('/api/admin/change-password', { method: 'POST', body: JSON.stringify({ current_password, new_password }) }),
+  adminListAdmins: () => request('/api/admin/admins'),
+  adminSetAdminPassword: (id, new_password) =>
+    request(`/api/admin/admins/${id}/password`, { method: 'POST', body: JSON.stringify({ new_password }) }),
   adminApprovals: () => request('/api/admin/approvals'),
   adminApprove: (id, admin_note) =>
     request(`/api/admin/bookings/${id}/approve`, {

@@ -19,6 +19,8 @@ from app.config import settings
 from app.database import admins_collection, bookings_collection, event_rooms_collection, rooms_collection
 from app.models import (
     AdminBookingCreate,
+    ChangePasswordRequest,
+    SetPasswordRequest,
     AdminBookingUpdate,
     AdminCreate,
     AdminLogin,
@@ -126,6 +128,45 @@ async def login(request: Request, payload: AdminLogin):
 @router.get("/me", response_model=AdminOut)
 async def me(admin=Depends(get_current_admin)):
     return AdminOut(id=str(admin["_id"]), name=admin["name"], email=admin["email"])
+
+
+async def _set_admin_password(admin_id, new_password: str) -> None:
+    # Recording when it changed is what ends any login sessions opened with the old password.
+    await admins_collection.update_one(
+        {"_id": admin_id},
+        {"$set": {"password_hash": hash_password(new_password), "password_changed_at": datetime.utcnow()}},
+    )
+
+
+@router.post("/change-password")
+@limiter.limit("10/hour")
+async def change_own_password(request: Request, payload: ChangePasswordRequest, admin=Depends(get_current_admin)):
+    """Change your own password. Other sessions (and this one's old token) are signed out; a fresh token is returned."""
+    if not verify_password(payload.current_password, admin["password_hash"]):
+        raise HTTPException(400, "Your current password isn't right")
+    await _set_admin_password(admin["_id"], payload.new_password)
+    return {"ok": True, "access_token": create_access_token(str(admin["_id"]))}
+
+
+@router.get("/admins", response_model=List[AdminOut])
+async def list_admins(admin=Depends(get_current_admin)):
+    return [
+        AdminOut(id=str(a["_id"]), name=a["name"], email=a["email"])
+        async for a in admins_collection.find({}).sort("name", 1)
+    ]
+
+
+@router.post("/admins/{admin_id}/password")
+@limiter.limit("20/hour")
+async def set_admin_password(
+    request: Request, admin_id: str, payload: SetPasswordRequest, admin=Depends(get_current_admin)
+):
+    """Set a new password for another admin who has forgotten theirs (they're signed out everywhere)."""
+    target = await admins_collection.find_one({"_id": ObjectId(admin_id)}) if ObjectId.is_valid(admin_id) else None
+    if not target:
+        raise HTTPException(404, "Admin not found")
+    await _set_admin_password(target["_id"], payload.new_password)
+    return {"ok": True}
 
 
 @router.get("/approvals", response_model=List[Booking])

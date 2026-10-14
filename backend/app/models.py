@@ -206,6 +206,20 @@ class UserLogin(BaseModel):
     password: str
 
 
+# New passwords chosen through the reset / change flows (bcrypt only reads the first 72 bytes).
+NEW_PASSWORD = Field(min_length=8, max_length=72)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(pattern=r"^\d{6}$")
+    new_password: str = NEW_PASSWORD
+
+
 class UserToken(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -471,6 +485,15 @@ class AdminCreate(BaseModel):
 class AdminLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = NEW_PASSWORD
+
+
+class SetPasswordRequest(BaseModel):
+    new_password: str = NEW_PASSWORD
 
 
 class AdminOut(BaseModel):

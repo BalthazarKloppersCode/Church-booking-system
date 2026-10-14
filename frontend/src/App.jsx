@@ -16,6 +16,7 @@ const AdminRoomGrid = lazy(() => import('./pages/admin/AdminRoomGrid'));
 const AdminRooms = lazy(() => import('./pages/admin/AdminRooms'));
 const AdminManageLists = lazy(() => import('./pages/admin/AdminManageLists'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminAccount = lazy(() => import('./pages/admin/AdminAccount'));
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="rooms" element={<AdminRooms />} />
             <Route path="lists" element={<AdminManageLists />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="account" element={<AdminAccount />} />
           </Route>
         </Routes>
       </Suspense>

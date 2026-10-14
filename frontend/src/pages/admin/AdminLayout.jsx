@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: '/admin/rooms', label: 'Manage rooms' },
   { to: '/admin/lists', label: 'Manage lists' },
   { to: '/admin/users', label: 'Manage users' },
+  { to: '/admin/account', label: 'My account' },
 ];
 
 export default function AdminLayout() {

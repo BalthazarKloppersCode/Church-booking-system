@@ -38,7 +38,8 @@ def test_every_template_is_valid_for_meta():
     for name, (category, body) in whatsapp.TEMPLATES.items():
         numbers = [int(n) for n in re.findall(r"\{\{(\d+)\}\}", body)]
         assert numbers and sorted(set(numbers)) == list(range(1, max(numbers) + 1)), name
-        assert not body.startswith("{{") and not body.rstrip().endswith("}}"), f"{name} starts/ends with a variable"
+        if category != "AUTHENTICATION":  # Meta writes authentication wording itself, and it starts with the code
+            assert not body.startswith("{{") and not body.rstrip().endswith("}}"), f"{name} starts/ends with a variable"
         assert category in {"UTILITY", "MARKETING", "AUTHENTICATION"}
         assert re.fullmatch(r"[a-z0-9_]+", name)
 
@@ -47,7 +48,8 @@ def test_the_setup_guide_lists_every_template_body_exactly():
     guide = (Path(__file__).resolve().parents[2] / "docs" / "WHATSAPP_SETUP.md").read_text(encoding="utf-8")
     for name, (_, body) in whatsapp.TEMPLATES.items():
         assert name in guide
-        assert body in guide, f"docs/WHATSAPP_SETUP.md is out of date for {name}"
+        if _ != "AUTHENTICATION":  # created from Meta's own form, so the guide describes settings, not wording
+            assert body in guide, f"docs/WHATSAPP_SETUP.md is out of date for {name}"
 
 
 def test_render_fills_the_same_text_meta_will_send():
@@ -137,3 +139,23 @@ async def test_skipped_without_credentials_or_with_an_unusable_number(monkeypatc
     await whatsapp.send_template("+27821234567", "booking_pending", ["a", "b", "c", "d"])
     assert _Client.calls == []
     assert "no credentials" in capsys.readouterr().out
+
+
+async def test_a_verification_code_is_sent_with_the_copy_code_button_and_never_logged(configured, capsys):
+    await whatsapp.send_template("+27821234567", "password_reset", ["493027"])
+
+    _, payload, _ = _Client.calls[0]
+    components = payload["template"]["components"]
+    assert components[0] == {"type": "body", "parameters": [{"type": "text", "text": "493027"}]}
+    assert components[1] == {"type": "button", "sub_type": "url", "index": "0", "parameters": [{"type": "text", "text": "493027"}]}
+    assert "493027" not in capsys.readouterr().out
+
+    # Other templates don't get a button.
+    await whatsapp.send_template("+27821234567", "booking_pending", ["a", "b", "c", "d"])
+    assert len(_Client.calls[1][1]["template"]["components"]) == 1
+
+
+async def test_the_code_is_not_logged_even_when_meta_refuses_the_message(configured, capsys):
+    _Client.response = _Resp(400, {"error": {"code": 132001, "message": "Template name does not exist"}})
+    await whatsapp.send_template("+27821234567", "password_reset", ["493027"])
+    assert "493027" not in capsys.readouterr().out

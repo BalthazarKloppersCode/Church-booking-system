@@ -5,7 +5,7 @@ dedicated church number. Everything below is done in Meta's dashboards by the
 church — the app only needs three values at the end.
 
 WhatsApp only lets a business start a conversation with a pre-approved
-**message template**, so the app sends the four templates listed in step 4.
+**message template**, so the app sends the five templates listed in step 4.
 The wording lives in `backend/app/whatsapp.py`; a test fails if this page and
 that file ever disagree.
 
@@ -40,7 +40,7 @@ name shown to people may be the number until it's approved.
 ## 4. Create the message templates
 
 Open **WhatsApp Manager → Message templates → Create template** and create
-each of the four below. For all of them: category **Utility**, language
+each of the first four below, then the fifth (`password_reset`) as described in its own section. For the first four: category **Utility**, language
 **English** (this must match `WHATSAPP_TEMPLATE_LANGUAGE`, default `en`), and
 use the name and body **exactly** as shown. Meta asks for sample values for the
 `{{numbers}}` — use the ones in the tables.
@@ -120,6 +120,21 @@ Please review it in the admin portal.
 | {{5}} | 14:00 |
 | {{6}} | 120 |
 | {{7}} | Wedding |
+
+### `password_reset`
+
+This one is created differently: it carries a one-time code, so Meta only allows it in the
+**Authentication** category and writes the wording itself.
+
+1. **Message templates → Create template → category: Authentication.**
+2. Name it exactly `password_reset`, language **English** (same as the others).
+3. Code delivery: **Copy code** (the "copy code" button).
+4. Tick **Add security recommendation** (this adds "For your security, do not share this code.").
+5. Set **Code expiry** to **15 minutes**.
+6. Submit. Approval is normally quick.
+
+The app sends the booker's 6-digit code through it when they use **Forgot password?** on the
+login page. Messages go to the WhatsApp number saved on their account.
 
 ## 5. A token that doesn't expire
 

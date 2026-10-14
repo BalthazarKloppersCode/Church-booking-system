@@ -53,6 +53,9 @@ export default function AdminLogin() {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      <p style={{ fontSize: 13, marginTop: 16, textAlign: 'center', color: 'var(--ink-2)' }}>
+        Forgot your password? Another admin can set a new one for you under <strong>My account</strong>.
+      </p>
       <p style={{ fontSize: 12, marginTop: 16, textAlign: 'center' }}>
         First time setting up? Create an admin account via the <code>/api/admin/register</code> endpoint —
         see README.

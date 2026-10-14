@@ -38,6 +38,14 @@ TEMPLATES: dict[str, tuple[str, str]] = {
         "Note from the office: {{4}}\n\n"
         "Please contact the office if you'd like to discuss alternatives.",
     ),
+    # One-time codes must be an AUTHENTICATION template: Meta fixes its wording
+    # (this is that text) and sends it with a "copy code" button, which is why
+    # the code is passed twice below. Create it with the Authentication category
+    # in Meta — see docs/WHATSAPP_SETUP.md.
+    "password_reset": (
+        "AUTHENTICATION",
+        "{{1}} is your verification code. For your security, do not share this code.",
+    ),
     "admin_new_request": (
         "UTILITY",
         "New booking request from {{1}} ({{2}}): {{3}} on {{4}} at {{5}} for {{6}} people. "
@@ -95,6 +103,11 @@ async def send_template(to_phone: str, template: str, params: list) -> None:
         return
     url = f"https://graph.facebook.com/{settings.whatsapp_api_version}/{settings.whatsapp_phone_number_id.strip()}/messages"
     headers = {"Authorization": f"Bearer {settings.whatsapp_access_token.strip()}"}
+    components = [{"type": "body", "parameters": [{"type": "text", "text": clean_param(p)} for p in params]}]
+    if TEMPLATES[template][0] == "AUTHENTICATION":
+        components.append(
+            {"type": "button", "sub_type": "url", "index": "0", "parameters": [{"type": "text", "text": clean_param(params[0])}]}
+        )
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -102,9 +115,7 @@ async def send_template(to_phone: str, template: str, params: list) -> None:
         "template": {
             "name": template,
             "language": {"code": settings.whatsapp_template_language},
-            "components": [
-                {"type": "body", "parameters": [{"type": "text", "text": clean_param(p)} for p in params]}
-            ],
+            "components": components,
         },
     }
     try:

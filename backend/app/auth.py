@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -24,14 +24,26 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(admin_id: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
-    payload = {"sub": admin_id, "scope": "admin", "exp": expire}
+    payload = {"sub": admin_id, "scope": "admin", "exp": expire, "iat": datetime.utcnow()}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
 def create_user_access_token(user_id: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
-    payload = {"sub": user_id, "scope": "user", "exp": expire}
+    payload = {"sub": user_id, "scope": "user", "exp": expire, "iat": datetime.utcnow()}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+
+
+def session_is_current(account: dict, payload: dict) -> bool:
+    """
+    A login token stops working once its account's password has been changed or
+    reset — that's what makes a reset end a session that someone else may be using.
+    Tokens from before this existed have no issue time and count as oldest.
+    """
+    changed = account.get("password_changed_at")
+    if not changed:
+        return True
+    return payload.get("iat", 0) >= int(changed.replace(tzinfo=timezone.utc).timestamp())
 
 
 async def _decode_admin_token(token: str) -> dict:
@@ -52,7 +64,7 @@ async def _decode_admin_token(token: str) -> dict:
 
     from bson import ObjectId
     admin = await admins_collection.find_one({"_id": ObjectId(admin_id)})
-    if admin is None:
+    if admin is None or not session_is_current(admin, payload):
         raise credentials_exception
     return admin
 
@@ -81,7 +93,10 @@ async def _decode_user_token(token: str) -> Optional[dict]:
         return None
 
     from bson import ObjectId
-    return await users_collection.find_one({"_id": ObjectId(user_id), "active": True})
+    user = await users_collection.find_one({"_id": ObjectId(user_id), "active": True})
+    if user is None or not session_is_current(user, payload):
+        return None
+    return user
 
 
 async def get_current_user_optional(token: Optional[str] = Depends(oauth2_scheme_optional)) -> Optional[dict]:
