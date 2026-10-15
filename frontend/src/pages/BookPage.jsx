@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import BookingConfirmation from '../components/BookingConfirmation';
 import BuildingMap from '../components/BuildingMap';
 import ForgotPassword from '../components/ForgotPassword';
+import { PASSWORD_RESET_ENABLED } from '../lib/features';
 import { formatDay, formatSlot } from '../lib/formatDate';
 import { END_SLOTS, SLOT_MINUTES, START_SLOTS, durationLabel, fromMinutes, slotsWithValue, toMinutes } from '../lib/timeSlots';
 import DatePicker from '../components/fields/DatePicker';
@@ -349,7 +350,7 @@ export default function BookPage() {
             {resetNotice}
           </p>
         )}
-        {forgotOpen ? (
+        {PASSWORD_RESET_ENABLED && forgotOpen ? (
           <ForgotPassword
             initialEmail={loginForm.email}
             onBack={() => setForgotOpen(false)}
@@ -384,11 +385,17 @@ export default function BookPage() {
           <button className="btn btn-primary btn-block" disabled={loginSubmitting}>
             {loginSubmitting ? 'Logging in…' : 'Log in'}
           </button>
-          <p style={{ margin: '12px 0 0', fontSize: 13, textAlign: 'center' }}>
-            <button type="button" className="btn btn-ghost" style={{ padding: 0, minHeight: 0, height: 'auto', textDecoration: 'underline' }} onClick={() => { setForgotOpen(true); setResetNotice(''); }}>
-              Forgot your password?
-            </button>
-          </p>
+          {PASSWORD_RESET_ENABLED ? (
+            <p style={{ margin: '12px 0 0', fontSize: 13, textAlign: 'center' }}>
+              <button type="button" className="btn btn-ghost" style={{ padding: 0, minHeight: 0, height: 'auto', textDecoration: 'underline' }} onClick={() => { setForgotOpen(true); setResetNotice(''); }}>
+                Forgot your password?
+              </button>
+            </p>
+          ) : (
+            <p style={{ margin: '12px 0 0', fontSize: 13, textAlign: 'center', color: 'var(--ink-2)' }}>
+              Forgotten your password? Ask the admin office to set a new one for you.
+            </p>
+          )}
         </form>
         )}
         <p style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 16 }}>

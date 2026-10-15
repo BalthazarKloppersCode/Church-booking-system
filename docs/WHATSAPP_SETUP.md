@@ -133,6 +133,16 @@ This one is created differently: it carries a one-time code, so Meta only allows
 5. Set **Code expiry** to **15 minutes**.
 6. Submit. Approval is normally quick.
 
+**Meta only allows Authentication templates once the business is verified** (and some sources say
+the account must also have reached a messaging volume). If you see "this WhatsApp Business account
+does not have permission to create this template", that is the reason: complete Business
+verification (Business settings -> Security centre), wait for it to be approved, then try again.
+
+Until the template is approved the "Forgot your password?" link stays hidden and the login page says
+to ask the office (an admin sets a new password under Manage users). Once `password_reset` is
+Active, set `VITE_PASSWORD_RESET_ENABLED=true` in Vercel (Settings -> Environment Variables) and
+redeploy the frontend to switch it on.
+
 The app sends the booker's 6-digit code through it when they use **Forgot password?** on the
 login page. Messages go to the WhatsApp number saved on their account.
 
