@@ -223,7 +223,9 @@ async def test_list_bookings_filters_by_email(client, rooms_col, booker_headers)
         headers=booker_headers,
     )
 
-    resp = await client.get("/api/bookings", params={"email": "a@example.com"})
+    from tests.test_calendar_sync import _make_admin
+
+    resp = await client.get("/api/bookings", params={"email": "a@example.com"}, headers=await _make_admin(client))
     assert resp.status_code == 200
     results = resp.json()
     assert len(results) == 1

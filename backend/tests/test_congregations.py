@@ -93,7 +93,9 @@ async def test_list_bookings_filters_by_congregation(client, rooms_col, booker_h
         headers=booker_headers,
     )
 
-    resp = await client.get("/api/bookings", params={"congregation": "Youth Group"})
+    from tests.test_calendar_sync import _make_admin
+
+    resp = await client.get("/api/bookings", params={"congregation": "Youth Group"}, headers=await _make_admin(client))
     assert resp.status_code == 200
     results = resp.json()
     assert len(results) == 1

@@ -153,7 +153,7 @@ async def test_recurring_conflict_blocks_entire_series(client, rooms_col):
     )
     assert conflicting.status_code == 409
 
-    all_bookings = await client.get("/api/bookings", params={"room_id": room_id})
+    all_bookings = await client.get("/api/bookings", params={"room_id": room_id}, headers=headers)
     assert len(all_bookings.json()) == 3  # only the first series exists
 
 
@@ -179,7 +179,7 @@ async def test_cancel_series_cancels_every_occurrence(client, rooms_col):
     assert cancelled.status_code == 200
     assert cancelled.json()["cancelled_count"] == 3
 
-    all_bookings = await client.get("/api/bookings", params={"room_id": room_id})
+    all_bookings = await client.get("/api/bookings", params={"room_id": room_id}, headers=headers)
     assert all(b["status"] == "cancelled" for b in all_bookings.json())
 
 

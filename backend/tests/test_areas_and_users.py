@@ -270,5 +270,5 @@ async def test_admin_can_edit_and_delete_any_booking(client, rooms_col, booker_h
     deleted = await client.delete(f"/api/admin/bookings/{booking_id}", headers=headers)
     assert deleted.status_code == 200
 
-    all_bookings = await client.get("/api/bookings")
+    all_bookings = await client.get("/api/bookings", headers=headers)
     assert not any(b["id"] == booking_id for b in all_bookings.json())

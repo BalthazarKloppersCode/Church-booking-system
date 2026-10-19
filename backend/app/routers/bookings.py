@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -8,8 +9,18 @@ from app import calendar_sync, church_events
 from app.auth import get_current_admin, get_current_user_optional
 from app.config import settings
 from app.database import areas_collection, bookings_collection, congregations_collection, rooms_collection
-from app.models import Booking, BookingConfirmation, BookingCreate, BookingStatus, CalendarEntry, ExternalCalendarEvent
+from app.models import (
+    Booking,
+    BookingConfirmation,
+    BookingCreate,
+    BookingStatus,
+    CalendarEntry,
+    ExternalCalendarEvent,
+    FindBookingRequest,
+    MyBooking,
+)
 from app.notifications import (
+    _reference,
     confirmation_content,
     notify_booking_confirmed,
     notify_booking_pending,
@@ -25,6 +36,34 @@ def _booking_out(doc: dict) -> Booking:
     doc = dict(doc)
     doc["id"] = str(doc.pop("_id"))
     return Booking(**doc)
+
+
+def _my_booking_out(doc: dict) -> MyBooking:
+    return MyBooking(
+        id=str(doc["_id"]),
+        reference=_reference(doc) or "",
+        room_name=doc["room_name"],
+        start_time=doc["start_time"],
+        end_time=doc["end_time"],
+        purpose=doc["purpose"],
+        purpose_other=doc.get("purpose_other"),
+        status=doc["status"],
+        admin_note=doc.get("admin_note"),
+        is_private_event=doc.get("is_private_event", False),
+    )
+
+
+def _owns(booking: dict, email: Optional[str], user: Optional[dict]) -> bool:
+    """
+    Who may read or cancel a booking without being an admin: someone who knows the
+    email it was made with, or the logged-in booker who made it (or whose account
+    email it is).
+    """
+    if email and booking["email"].lower() == email.strip().lower():
+        return True
+    if user:
+        return booking.get("created_by") == str(user["_id"]) or booking["email"].lower() == user["email"].lower()
+    return False
 
 
 @router.post("", response_model=Booking)
@@ -96,6 +135,7 @@ async def create_booking(
         "room_name": room["name"],
         "status": status.value,
         "admin_note": None,
+        "created_by": str(user["_id"]),
         "created_at": now,
         "updated_at": now,
     }
@@ -117,6 +157,7 @@ async def create_booking(
 
 @router.get("", response_model=List[Booking])
 async def list_bookings(
+    admin=Depends(get_current_admin),
     email: Optional[str] = None,
     room_id: Optional[str] = None,
     congregation: Optional[str] = None,
@@ -125,13 +166,10 @@ async def list_bookings(
     start_before: Optional[datetime] = None,
 ):
     """
-    Public-ish listing endpoint used by:
-    - a booker checking their own bookings (filter by email)
-    - the admin calendar / room grid (filter by date range / room / status)
-    No auth required for read access since it powers the public "is this
-    room free" calendar view; sensitive requester details are still
-    returned, so lock this down with auth if you make it internet-public
-    beyond your congregation.
+    The full booking records, with every requester's name, email and phone, so
+    this is for the admin portal only (calendar, room grid, bookings list,
+    dashboard). Bookers use /mine or /find; the public calendar uses /calendar,
+    which carries no personal details.
     """
     query: dict = {}
     if email:
@@ -151,6 +189,33 @@ async def list_bookings(
 
     bookings = [_booking_out(b) async for b in bookings_collection.find(query).sort("start_time", 1)]
     return bookings
+
+
+@router.get("/mine", response_model=List[MyBooking])
+async def my_bookings(user=Depends(get_current_user_optional)):
+    """A logged-in booker's own bookings: the ones they made, plus any made with their account's email."""
+    if not user:
+        raise HTTPException(401, "Please log in to see your bookings")
+    query = {"$or": [{"created_by": str(user["_id"])}, {"email": {"$regex": f"^{re.escape(user['email'])}$", "$options": "i"}}]}
+    return [_my_booking_out(b) async for b in bookings_collection.find(query).sort("start_time", 1)]
+
+
+@router.post("/find", response_model=List[MyBooking])
+@limiter.limit("20/minute")
+async def find_my_booking(request: Request, payload: FindBookingRequest):
+    """
+    For someone without an account (for example, who used the private-events
+    link): find a booking by the email it was made with AND its reference
+    (JGP-XXXXXXXX, shown on the confirmation and in the WhatsApp message). Both
+    must match, so an email address alone reveals nothing. A miss gives one
+    answer whichever half was wrong.
+    """
+    wanted = re.sub(r"[^A-Z0-9]", "", payload.reference.upper()).removeprefix("JGP")
+    candidates = bookings_collection.find({"email": {"$regex": f"^{re.escape(payload.email)}$", "$options": "i"}})
+    found = [b async for b in candidates if wanted and str(b["_id"]).upper().endswith(wanted) and len(wanted) >= 8]
+    if not found:
+        raise HTTPException(404, "We couldn't find a booking with that email and reference")
+    return [_my_booking_out(b) for b in found]
 
 
 @router.get("/calendar", response_model=List[CalendarEntry])
@@ -202,17 +267,19 @@ async def list_external_calendar_events(
 
 @router.get("/{booking_id}/confirmation", response_model=BookingConfirmation)
 @limiter.limit("30/minute")
-async def booking_confirmation(request: Request, booking_id: str, email: str):
+async def booking_confirmation(
+    request: Request, booking_id: str, email: Optional[str] = None, user=Depends(get_current_user_optional)
+):
     """
     The confirmation a booker can read and save on screen — the same content
     as the confirmation email, so it still works when an email doesn't arrive.
     Guarded the same way cancelling is: you need the email the booking was
-    made with.
+    made with, or to be logged in as the booker who made it.
     """
     booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)}) if ObjectId.is_valid(booking_id) else None
     if not booking:
         raise HTTPException(404, "Booking not found")
-    if booking["email"].lower() != email.lower():
+    if not _owns(booking, email, user):
         raise HTTPException(403, "That email doesn't match this booking")
 
     room = await rooms_collection.find_one({"_id": ObjectId(booking["room_id"])}) or {"name": booking["room_name"]}
@@ -228,11 +295,17 @@ async def booking_confirmation(request: Request, booking_id: str, email: str):
 
 @router.post("/{booking_id}/cancel", response_model=Booking)
 @limiter.limit("20/minute")
-async def cancel_booking(request: Request, booking_id: str, email: str, background_tasks: BackgroundTasks):
-    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)})
+async def cancel_booking(
+    request: Request,
+    booking_id: str,
+    background_tasks: BackgroundTasks,
+    email: Optional[str] = None,
+    user=Depends(get_current_user_optional),
+):
+    booking = await bookings_collection.find_one({"_id": ObjectId(booking_id)}) if ObjectId.is_valid(booking_id) else None
     if not booking:
         raise HTTPException(404, "Booking not found")
-    if booking["email"].lower() != email.lower():
+    if not _owns(booking, email, user):
         raise HTTPException(403, "You can only cancel your own bookings")
 
     await bookings_collection.update_one(

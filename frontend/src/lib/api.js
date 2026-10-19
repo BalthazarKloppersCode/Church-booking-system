@@ -95,10 +95,16 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/bookings${qs ? `?${qs}` : ''}`);
   },
+  // The full list carries everyone's contact details, so it is admin-only. Bookers use these:
+  // listMyBookings (logged in) or findMyBooking (the email AND the booking reference).
+  listMyBookings: () => request('/api/bookings/mine', { headers: bookerAuthHeaders() }),
+  findMyBooking: (email, reference) =>
+    request('/api/bookings/find', { method: 'POST', body: JSON.stringify({ email, reference }) }),
+  // `email` proves a booking is yours; leave it empty when logged in as the booker who made it.
   getBookingConfirmation: (id, email) =>
-    request(`/api/bookings/${id}/confirmation?email=${encodeURIComponent(email)}`),
+    request(`/api/bookings/${id}/confirmation${email ? `?email=${encodeURIComponent(email)}` : ''}`, { headers: bookerAuthHeaders() }),
   cancelBooking: (id, email) =>
-    request(`/api/bookings/${id}/cancel?email=${encodeURIComponent(email)}`, { method: 'POST' }),
+    request(`/api/bookings/${id}/cancel${email ? `?email=${encodeURIComponent(email)}` : ''}`, { method: 'POST', headers: bookerAuthHeaders() }),
   listBookingsCalendar: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request(`/api/bookings/calendar${qs ? `?${qs}` : ''}`);

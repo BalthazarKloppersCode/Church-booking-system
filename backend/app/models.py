@@ -444,6 +444,35 @@ class Booking(BaseModel):
         return v.isoformat()
 
 
+class MyBooking(BaseModel):
+    """
+    What a booker gets back about their own booking: enough to recognise it, view
+    its confirmation and cancel it. No contact details (they already know them) and
+    nothing internal. The full record is the admin-only `Booking`.
+    """
+    id: str
+    reference: str
+    room_name: str
+    start_time: datetime
+    end_time: datetime
+    purpose: str
+    purpose_other: Optional[str] = None
+    status: BookingStatus
+    admin_note: Optional[str] = None
+    is_private_event: bool = False
+
+    @field_serializer("start_time", "end_time")
+    def _serialize_as_utc(self, v: datetime) -> str:
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.isoformat()
+
+
+class FindBookingRequest(BaseModel):
+    email: EmailStr
+    reference: str = Field(min_length=4, max_length=40)
+
+
 class CalendarEntry(BaseModel):
     """
     Privacy-safe booking overview for the public booker-facing calendar —
