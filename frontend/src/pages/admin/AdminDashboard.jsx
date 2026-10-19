@@ -23,6 +23,43 @@ const RANGE_OPTIONS = [
   { value: 90, label: 'Last 90 days' },
 ];
 
+// The two links the office hands out. The private events one needs no login and
+// everything sent through it waits for approval, so it is safe to share widely.
+function ShareLinks() {
+  const [copied, setCopied] = useState('');
+  const base = window.location.origin;
+  const links = [
+    { key: 'private', label: 'Private events request link', note: 'No login needed. Every request waits for you to approve it.', url: `${base}/private-events` },
+    { key: 'book', label: 'Booking site', note: 'Church and private bookings, for people with an account.', url: `${base}/book` },
+  ];
+  async function copy(link) {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopied(link.key);
+      setTimeout(() => setCopied(''), 2500);
+    } catch {
+      setCopied('');
+    }
+  }
+  return (
+    <div className="card" style={{ padding: '16px 20px', marginBottom: 16 }}>
+      <h3 style={{ margin: '0 0 6px' }}>Share links</h3>
+      {links.map((l, i) => (
+        <div key={l.key} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 0', borderTop: i ? '1px solid var(--line-soft)' : 0 }}>
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{l.label}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-2)' }}>{l.note}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-3)', overflowWrap: 'anywhere' }}>{l.url}</div>
+          </div>
+          <button type="button" className="btn btn-secondary" style={{ height: 36 }} onClick={() => copy(l)}>
+            {copied === l.key ? 'Copied' : 'Copy link'}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [pending, setPending] = useState(null);
@@ -248,6 +285,8 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      <ShareLinks />
 
       <div className="stat-strip" style={{ marginBottom: 16 }}>
         <div className="stat">

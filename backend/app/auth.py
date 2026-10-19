@@ -24,13 +24,13 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(admin_id: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
-    payload = {"sub": admin_id, "scope": "admin", "exp": expire, "iat": datetime.utcnow()}
+    payload = {"sub": admin_id, "scope": "admin", "exp": expire, "iat": datetime.now(timezone.utc).timestamp()}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
 def create_user_access_token(user_id: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.jwt_expire_hours)
-    payload = {"sub": user_id, "scope": "user", "exp": expire, "iat": datetime.utcnow()}
+    payload = {"sub": user_id, "scope": "user", "exp": expire, "iat": datetime.now(timezone.utc).timestamp()}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
@@ -43,7 +43,8 @@ def session_is_current(account: dict, payload: dict) -> bool:
     changed = account.get("password_changed_at")
     if not changed:
         return True
-    return payload.get("iat", 0) >= int(changed.replace(tzinfo=timezone.utc).timestamp())
+    # Compared to the microsecond: a token issued in the same second as the change, but before it, is still ended.
+    return payload.get("iat", 0) >= changed.replace(tzinfo=timezone.utc).timestamp()
 
 
 async def _decode_admin_token(token: str) -> dict:

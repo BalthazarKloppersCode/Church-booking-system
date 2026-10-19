@@ -25,6 +25,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/book" element={<BookPage />} />
+          <Route path="/private-events" element={<BookPage publicLink />} />
           <Route path="/my-bookings" element={<MyBookingsPage />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />

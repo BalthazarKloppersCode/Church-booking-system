@@ -278,6 +278,49 @@ class BookingCreate(BaseModel):
         return _to_naive_utc(v)
 
 
+PRIVATE_LINK_PURPOSES = ["Wedding", "Birthday", "Funeral / memorial", "Other"]
+
+
+class PrivateEventRequest(BaseModel):
+    """
+    A request made through the shareable private-events link: no login, and it is
+    always a private event waiting for the office. Deliberately has no
+    is_private_event/status fields: the caller can't choose either.
+    """
+    room_id: str = Field(max_length=64)
+    requester_name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=6, max_length=40)
+    congregation: Optional[str] = Field(default=None, max_length=120)
+    headcount: int = Field(ge=1, le=5000)
+    start_time: datetime
+    end_time: datetime
+    purpose: str
+    purpose_other: Optional[str] = Field(default=None, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    accepted_conditions: bool = False
+    # Honeypot: real visitors never see this field, so anything in it is a bot.
+    website: str = Field(default="", max_length=200)
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _normalize_start_end(cls, v: datetime) -> datetime:
+        return _to_naive_utc(v)
+
+    @field_validator("purpose")
+    @classmethod
+    def _private_purposes_only(cls, v: str) -> str:
+        if v not in PRIVATE_LINK_PURPOSES:
+            raise ValueError("This link is for weddings, birthdays, funerals and other private events")
+        return v
+
+    @model_validator(mode="after")
+    def _other_needs_detail(self):
+        if self.purpose == "Other" and not (self.purpose_other or "").strip():
+            raise ValueError("Please describe the event")
+        return self
+
+
 class BookingAdminAction(BaseModel):
     admin_note: Optional[str] = None
 
@@ -379,6 +422,9 @@ class Booking(BaseModel):
     series_id: Optional[str] = None
     # Bookings for the same event in several rooms (admin-created) share this.
     group_id: Optional[str] = None
+    # Where the booking came from when it wasn't a logged-in booker or an admin
+    # (currently only "private_link", the public private-events request link).
+    source: Optional[str] = None
     google_event_id: Optional[str] = Field(
         default=None,
         description="Id of this booking's event on the synced Google Calendar, once pushed. Internal bookkeeping.",

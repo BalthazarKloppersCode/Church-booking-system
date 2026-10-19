@@ -43,6 +43,8 @@ function toTimeValue(d) {
 }
 
 const FORCED_PRIVATE_PURPOSES = ['Wedding', 'Birthday', 'Funeral / memorial'];
+// What the shareable private-events link offers (the server accepts exactly these).
+const PRIVATE_LINK_PURPOSES = [...FORCED_PRIVATE_PURPOSES, 'Other'];
 
 // Shown as soon as the event type is picked, before anything is submitted.
 const CANCELLATION_NOTICES = {
@@ -71,9 +73,13 @@ function contactDefaults(user) {
   return { requester_name: user?.name || '', email: user?.email || '', phone: user?.phone || '' };
 }
 
-export default function BookPage() {
-  const [step, setStep] = useState(0);
-  const [bookingKind, setBookingKind] = useState(null); // 'church' | 'private'
+// `publicLink` is the shareable private-events page (/private-events): no login,
+// always a private event, and everything it sends waits for the office.
+export default function BookPage({ publicLink = false }) {
+  const [step, setStep] = useState(publicLink ? 1 : 0);
+  const [bookingKind, setBookingKind] = useState(publicLink ? 'private' : null); // 'church' | 'private'
+  const [honeypot, setHoneypot] = useState('');
+  const [linkStatus, setLinkStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -90,7 +96,7 @@ export default function BookPage() {
   const [mapSuggestions, setMapSuggestions] = useState(null);
 
   const [form, setForm] = useState(() => ({
-    ...contactDefaults(readStoredBooker()),
+    ...contactDefaults(publicLink ? null : readStoredBooker()),
     congregation: '',
     purpose: '',
     purpose_other: '',
@@ -125,6 +131,11 @@ export default function BookPage() {
   const [hebrewsRoom, setHebrewsRoom] = useState(null);
 
   const [showCalendar, setShowCalendar] = useState(false);
+
+  useEffect(() => {
+    if (!publicLink) return;
+    api.privateLinkStatus().then(setLinkStatus).catch(() => setLinkStatus({ enabled: true }));
+  }, [publicLink]);
 
   useEffect(() => {
     api
@@ -276,6 +287,26 @@ export default function BookPage() {
     try {
       const start_time = toLocalISOString(search.date, search.startTime);
       const end_time = toLocalISOString(search.date, search.endTime);
+      if (publicLink) {
+        const request = await api.createPrivateRequest({
+          room_id: selectedRoom.room.id,
+          headcount: Number(search.headcount),
+          start_time,
+          end_time,
+          requester_name: form.requester_name,
+          email: form.email,
+          phone: form.phone,
+          congregation: form.congregation || null,
+          purpose: form.purpose,
+          purpose_other: form.purpose === 'Other' ? form.purpose_other : null,
+          notes: form.notes || null,
+          accepted_conditions: acceptedConditions,
+          website: honeypot,
+        });
+        setResult(request);
+        setStep(4);
+        return;
+      }
       const booking = await api.createBooking({
         room_id: selectedRoom.room.id,
         headcount: Number(search.headcount),
@@ -333,7 +364,19 @@ export default function BookPage() {
     }
   }
 
-  if (!bookerToken) {
+  if (publicLink && linkStatus && !linkStatus.enabled) {
+    return (
+      <div className="container" style={{ maxWidth: 480 }}>
+        <div className="eyebrow">Pinehurst Campus</div>
+        <h1 style={{ marginBottom: 12 }}>Request a private event</h1>
+        <div className="card">
+          <p style={{ margin: 0 }}>This request link is switched off at the moment. Please contact the admin office.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bookerToken && !publicLink) {
     return (
       <div className="container" style={{ maxWidth: 480 }}>
         <div className="eyebrow">
@@ -408,9 +451,16 @@ export default function BookPage() {
   return (
     <div className="container" style={{ maxWidth: 640 }}>
       <div className="eyebrow">
-        <Link to="/" style={{ color: 'inherit' }}>← Back home</Link>
+        {publicLink ? 'Pinehurst Campus' : <Link to="/" style={{ color: 'inherit' }}>← Back home</Link>}
       </div>
-      <h1 style={{ marginBottom: 30 }}>Book a room</h1>
+      <h1 style={{ marginBottom: publicLink ? 12 : 30 }}>{publicLink ? 'Request a private event' : 'Book a room'}</h1>
+      {publicLink && step === 1 && (
+        <p style={{ marginBottom: 22 }}>
+          For weddings, birthdays, funerals and other private events. You don't need an account. The admin
+          office reviews every request, so nothing is confirmed until they say yes, and you'll get a WhatsApp
+          message once it's decided.
+        </p>
+      )}
 
       {error && (
         <div className="card" style={{ background: 'var(--no-bg)', border: 'none', marginBottom: 20 }}>
@@ -462,14 +512,16 @@ export default function BookPage() {
 
       {step === 1 && (
         <form className="card" onSubmit={handleSearch}>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ padding: '0 0 14px', color: 'var(--ink-2)', fontSize: 13 }}
-            onClick={() => setStep(0)}
-          >
-            ← Change booking type
-          </button>
+          {!publicLink && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '0 0 14px', color: 'var(--ink-2)', fontSize: 13 }}
+              onClick={() => setStep(0)}
+            >
+              ← Change booking type
+            </button>
+          )}
           <div className="field">
             <label>Date</label>
             <DatePicker
@@ -655,26 +707,32 @@ export default function BookPage() {
               onChange={(e) => setForm({ ...form, requester_name: e.target.value })}
             />
           </div>
+          {(!publicLink || congregationOptions.length > 0) && (
           <div className="field">
-            <label>Congregation / group</label>
+            <label>{publicLink ? 'Congregation / group (optional)' : 'Congregation / group'}</label>
             {congregationOptions.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--no)' }}>
                 No congregations set up yet — ask the admin office.
               </p>
             ) : (
               <Select
-                required
+                required={!publicLink}
                 aria-label="Congregation / group"
                 value={form.congregation}
                 onChange={(e) => setForm({ ...form, congregation: e.target.value })}
               >
-                <option value="" disabled>Select your congregation / group</option>
+                {publicLink ? (
+                  <option value="">Not part of a congregation</option>
+                ) : (
+                  <option value="" disabled>Select your congregation / group</option>
+                )}
                 {congregationOptions.map((c) => (
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </Select>
             )}
           </div>
+          )}
           <div className="field-row">
             <div className="field">
               <label>Email</label>
@@ -697,7 +755,7 @@ export default function BookPage() {
           </div>
           <div className="field">
             <label>What's this booking for?</label>
-            {purposesLoaded && purposes.length === 0 ? (
+            {!publicLink && purposesLoaded && purposes.length === 0 ? (
               <p style={{ fontSize: 13, color: 'var(--no)' }}>
                 No booking purposes have been set up yet — ask the admin office to add one before booking.
               </p>
@@ -715,7 +773,7 @@ export default function BookPage() {
                 }
               >
                 <option value="" disabled>Select a purpose</option>
-                {purposes.map((p) => (
+                {(publicLink ? PRIVATE_LINK_PURPOSES.map((name) => ({ id: name, name })) : purposes).map((p) => (
                   <option key={p.id} value={p.name}>{p.name}</option>
                 ))}
               </Select>
@@ -748,7 +806,7 @@ export default function BookPage() {
             )}
           </div>
 
-          {selectedRoom.room.type === 'training_hall' && (
+          {!publicLink && selectedRoom.room.type === 'training_hall' && (
             <div className="field">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input
@@ -775,7 +833,7 @@ export default function BookPage() {
             </div>
           )}
 
-          {selectedRoom.room.type === 'coffee_shop' && (
+          {!publicLink && selectedRoom.room.type === 'coffee_shop' && (
             <div className="field">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input
@@ -813,6 +871,16 @@ export default function BookPage() {
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
+
+          {publicLink && (
+            // A trap for simple bots: people never see this field, so anything typed in it means a bot filled the form.
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
+              <label>
+                Website
+                <input tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+              </label>
+            </div>
+          )}
 
           {isPrivateEvent && (
             <div className="card" style={{ background: 'var(--wait-bg)', border: 'none', marginBottom: 18 }}>

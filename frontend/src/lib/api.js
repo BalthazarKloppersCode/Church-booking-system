@@ -78,6 +78,10 @@ export const api = {
   deleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
   bookerLogin: (payload) =>
     request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
+  // The shareable private-events link: no login, and every request waits for the office.
+  privateLinkStatus: () => request('/api/public/private-events/status'),
+  createPrivateRequest: (payload) =>
+    request('/api/public/private-events', { method: 'POST', body: JSON.stringify(payload) }),
   // Forgotten password: a code is sent to the WhatsApp number saved on the account.
   forgotPassword: (email) =>
     request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),

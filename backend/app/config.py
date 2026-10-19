@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # messages) is shown in this timezone instead.
     church_timezone: str = "Africa/Johannesburg"
 
+    # The shareable "private events only" request link (no login; everything it
+    # creates waits for the office). Set to false to switch the link off at once.
+    private_event_link_enabled: bool = True
+
     frontend_url: str = "http://localhost:5173"
 
     class Config:

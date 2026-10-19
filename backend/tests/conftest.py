@@ -45,6 +45,7 @@ async def app_state(monkeypatch):
     from app.routers import areas as areas_router
     from app.routers import auth as booker_auth_router
     from app.routers import bookings as bookings_router
+    from app.routers import public_requests as public_requests_router
     from app.routers import congregations as congregations_router
     from app.routers import rooms as rooms_router
     from app.routers import users as users_router
@@ -70,6 +71,7 @@ async def app_state(monkeypatch):
         users_router,
         booker_auth_router,
         calendar_sync_module,
+        public_requests_router,
     )
     for module in modules:
         if hasattr(module, "rooms_collection"):

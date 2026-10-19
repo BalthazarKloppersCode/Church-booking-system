@@ -14,7 +14,7 @@ import OverflowMenu from './OverflowMenu';
 export default function BookingRow({ booking: b, primary, menu = [], meta, dim, flat, children }) {
   const badge = bookingBadge(b);
   const purpose = b.purpose_other ? `${b.purpose}: ${b.purpose_other}` : b.purpose;
-  const who = [b.requester_name, b.congregation, b.is_private_event && 'Private event', `${b.headcount} people`, purpose]
+  const who = [b.requester_name, b.congregation, b.is_private_event && 'Private event', b.source === 'private_link' && 'Via the private events link', `${b.headcount} people`, purpose]
     .filter(Boolean)
     .join(' · ');
   const requested = meta === undefined ? `Requested ${formatRelative(b.created_at)}` : meta;
