@@ -938,8 +938,8 @@ export default function BookPage({ publicLink = false }) {
               <h3>You're all set.</h3>
               <p>
                 {result.room_name} is booked for {formatSlot(result.start_time, result.end_time)}.
-                Your confirmation is below — save it before you leave this page. We're also sending a copy
-                to your email and WhatsApp.
+                Your confirmation is below — save it before you leave this page. We're also sending a
+                message to your WhatsApp number.
               </p>
             </>
           ) : (
