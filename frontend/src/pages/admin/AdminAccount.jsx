@@ -15,6 +15,7 @@ export default function AdminAccount() {
   const { admin } = useAdmin();
   const [admins, setAdmins] = useState(null);
   const [notice, setNotice] = useState('');
+  const [email, setEmail] = useState(null); // set after a change, so the header shows the new one
 
   useEffect(() => {
     api.adminListAdmins().then(setAdmins).catch(() => setAdmins([]));
@@ -23,9 +24,18 @@ export default function AdminAccount() {
   return (
     <div style={{ maxWidth: 560 }}>
       <h1>My account</h1>
-      {admin && <p style={{ margin: '0 0 20px', color: 'var(--ink-2)' }}>{admin.name} · {admin.email}</p>}
+      {admin && <p style={{ margin: '0 0 20px', color: 'var(--ink-2)' }}>{admin.name} · {email || admin.email}</p>}
       {notice && <Notice onDismiss={() => setNotice('')}>{notice}</Notice>}
 
+      <ChangeOwnEmail
+        current={email || admin?.email || ''}
+        onChanged={(next) => {
+          setEmail(next);
+          setNotice(`Your login email is now ${next}. Use it the next time you sign in.`);
+        }}
+      />
+
+      <div style={{ height: 16 }} />
       <ChangeOwnPassword onChanged={() => setNotice('Your password has been changed.')} />
 
       <h2 style={{ fontSize: 18, margin: '32px 0 6px' }}>Other admins</h2>
@@ -45,6 +55,46 @@ export default function AdminAccount() {
           ))}
       </div>
     </div>
+  );
+}
+
+function ChangeOwnEmail({ current, onChanged }) {
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      const updated = await api.adminChangeEmail(form.password, form.email.trim());
+      setForm({ email: '', password: '' });
+      onChanged(updated.email);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="card" onSubmit={submit}>
+      <h2 style={{ fontSize: 18, margin: '0 0 4px' }}>Change my login email</h2>
+      <p style={{ margin: '0 0 12px', fontSize: 13 }}>You sign in with <strong>{current}</strong>. Your password stays the same.</p>
+      {error && <p role="alert" style={{ color: 'var(--no)', fontSize: 13, margin: '0 0 10px' }}>{error}</p>}
+      <div className="admin-scope">
+        <div className="field">
+          <label>New email</label>
+          <input type="email" required autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>Your current password</label>
+          <input type="password" required autoComplete="current-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        </div>
+      </div>
+      <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Change email'}</button>
+    </form>
   );
 }
 

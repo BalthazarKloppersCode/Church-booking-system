@@ -1,5 +1,6 @@
 import asyncio
 import calendar
+import re
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import List, Tuple
@@ -28,6 +29,7 @@ from app.models import (
     Booking,
     BookingAdminAction,
     BookingStatus,
+    ChangeEmailRequest,
     EventRoomsUpdate,
     RecurrenceRule,
     Token,
@@ -146,6 +148,25 @@ async def change_own_password(request: Request, payload: ChangePasswordRequest, 
         raise HTTPException(400, "Your current password isn't right")
     await _set_admin_password(admin["_id"], payload.new_password)
     return {"ok": True, "access_token": create_access_token(str(admin["_id"]))}
+
+
+@router.post("/change-email", response_model=AdminOut)
+@limiter.limit("10/hour")
+async def change_own_email(request: Request, payload: ChangeEmailRequest, admin=Depends(get_current_admin)):
+    """
+    Change the email you log in with. Needs your current password, so a left-open
+    screen can't be used to take over the account. The password and your current
+    session stay as they are.
+    """
+    if not verify_password(payload.current_password, admin["password_hash"]):
+        raise HTTPException(400, "Your current password isn't right")
+    taken = await admins_collection.find_one(
+        {"_id": {"$ne": admin["_id"]}, "email": {"$regex": f"^{re.escape(payload.new_email)}$", "$options": "i"}}
+    )
+    if taken:
+        raise HTTPException(400, "Another admin already uses that email")
+    await admins_collection.update_one({"_id": admin["_id"]}, {"$set": {"email": payload.new_email}})
+    return AdminOut(id=str(admin["_id"]), name=admin["name"], email=payload.new_email)
 
 
 @router.get("/admins", response_model=List[AdminOut])

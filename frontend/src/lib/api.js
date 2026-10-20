@@ -122,6 +122,8 @@ export const api = {
   adminMe: () => request('/api/admin/me'),
   adminChangePassword: (current_password, new_password) =>
     request('/api/admin/change-password', { method: 'POST', body: JSON.stringify({ current_password, new_password }) }),
+  adminChangeEmail: (current_password, new_email) =>
+    request('/api/admin/change-email', { method: 'POST', body: JSON.stringify({ current_password, new_email }) }),
   adminListAdmins: () => request('/api/admin/admins'),
   adminSetAdminPassword: (id, new_password) =>
     request(`/api/admin/admins/${id}/password`, { method: 'POST', body: JSON.stringify({ new_password }) }),

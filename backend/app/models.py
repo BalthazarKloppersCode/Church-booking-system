@@ -567,6 +567,11 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = NEW_PASSWORD
 
 
+class ChangeEmailRequest(BaseModel):
+    current_password: str
+    new_email: EmailStr
+
+
 class SetPasswordRequest(BaseModel):
     new_password: str = NEW_PASSWORD
 
