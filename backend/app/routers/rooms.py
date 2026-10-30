@@ -21,6 +21,14 @@ SMALL_ROOM_TYPES = {"classroom", "leap"}
 OVERSIZED_RATIO = 1.2  # more than 20% bigger than the best-fitting option = blocked
 
 
+def closed_message(room: dict) -> Optional[str]:
+    """Why a room can't be booked right now, in words for the booker; None when it is open."""
+    if room.get("bookable", True):
+        return None
+    reason = (room.get("closed_reason") or "").strip()
+    return f"{room['name']} isn't open for booking yet" + (f": {reason}" if reason else "")
+
+
 def _room_out(doc: dict) -> Room:
     doc = dict(doc)
     doc["id"] = str(doc.pop("_id"))
@@ -52,6 +60,12 @@ async def update_room(room_id: str, room: RoomUpdate, admin=Depends(get_current_
     # null is how an admin clears it back to the automatic size rule.
     if "min_people" in room.model_fields_set and room.min_people is None:
         update_data["min_people"] = None
+
+    # Opening a room again clears the reason it was closed for.
+    if update_data.get("bookable") is True:
+        update_data["closed_reason"] = None
+    elif "closed_reason" in update_data:
+        update_data["closed_reason"] = update_data["closed_reason"].strip() or None
 
     new_capacity = update_data.get("capacity", existing["capacity"])
     new_min = update_data["min_people"] if "min_people" in update_data else existing.get("min_people")
@@ -109,9 +123,12 @@ async def suggest_rooms(request: Request, req: RoomSuggestionRequest):
 
     # Each availability check is its own DB round-trip — run them concurrently
     # instead of one-by-one, since they're independent of each other.
-    availability = await asyncio.gather(
-        *(_is_room_free(str(room["_id"]), req.start_time, req.end_time) for room in candidates)
-    )
+    async def _free(room) -> bool:
+        if closed_message(room):
+            return False  # closed rooms never offer a time, whatever the calendar says
+        return await _is_room_free(str(room["_id"]), req.start_time, req.end_time)
+
+    availability = await asyncio.gather(*(_free(room) for room in candidates))
 
     def below_minimum(room) -> bool:
         return room.get("min_people") is not None and req.headcount < room["min_people"]
@@ -127,7 +144,7 @@ async def suggest_rooms(request: Request, req: RoomSuggestionRequest):
     fitting_capacities = [
         room["capacity"]
         for room in candidates
-        if room["capacity"] >= req.headcount and not below_minimum(room)
+        if room["capacity"] >= req.headcount and not below_minimum(room) and not closed_message(room)
     ]
     best_fit_capacity = min(fitting_capacities) if fitting_capacities else None
 
@@ -155,6 +172,9 @@ async def suggest_rooms(request: Request, req: RoomSuggestionRequest):
         else:
             fit = "good_fit"
 
-        suggestions.append(RoomSuggestion(room=room_out, available=free, fit_quality=fit, note=note))
+        closed = closed_message(room) is not None
+        if closed:
+            note = (room.get("closed_reason") or "").strip() or "Not open for booking yet"
+        suggestions.append(RoomSuggestion(room=room_out, available=free, closed=closed, fit_quality=fit, note=note))
 
     return suggestions

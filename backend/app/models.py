@@ -85,6 +85,18 @@ class RoomBase(BaseModel):
         ),
     )
     active: bool = True
+    bookable: bool = Field(
+        default=True,
+        description=(
+            "False keeps the room visible but closed to new bookings (for example while a fire "
+            "marshal's approval is outstanding). Existing bookings stay as they are."
+        ),
+    )
+    closed_reason: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        description="Shown to bookers while the room is closed, e.g. 'Awaiting fire marshal approval'.",
+    )
 
 
 class RoomCreate(RoomBase):
@@ -109,6 +121,8 @@ class RoomUpdate(BaseModel):
     always_requires_approval: Optional[bool] = None
     min_people: Optional[int] = Field(default=None, ge=1)
     active: Optional[bool] = None
+    bookable: Optional[bool] = None
+    closed_reason: Optional[str] = Field(default=None, max_length=200)
 
 
 class Room(RoomBase):
@@ -605,5 +619,6 @@ class RoomSuggestionRequest(BaseModel):
 class RoomSuggestion(BaseModel):
     room: Room
     available: bool
+    closed: bool = False  # the office has closed this room to new bookings (see Room.bookable)
     fit_quality: str  # "good_fit" | "oversized" | "too_small"
     note: Optional[str] = None  # why a room is blocked, in words the booker can act on

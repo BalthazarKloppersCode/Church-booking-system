@@ -25,7 +25,7 @@ from app.models import Booking, BookingStatus, PrivateEventRequest, PRIVATE_LINK
 from app.notifications import notify_admin_new_request, notify_booking_pending
 from app.rate_limit import limiter
 from app.routers.bookings import _booking_out
-from app.routers.rooms import _is_room_free
+from app.routers.rooms import _is_room_free, closed_message
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
@@ -64,6 +64,8 @@ async def request_private_event(request: Request, payload: PrivateEventRequest, 
     room = await rooms_collection.find_one({"_id": ObjectId(payload.room_id)}) if ObjectId.is_valid(payload.room_id) else None
     if not room or not room.get("active", True):
         raise HTTPException(404, "Room not found")
+    if closed_message(room):
+        raise HTTPException(409, closed_message(room))
     if payload.headcount > room["capacity"]:
         raise HTTPException(400, f"{room['name']} can only hold {room['capacity']} people — please pick a larger room.")
 

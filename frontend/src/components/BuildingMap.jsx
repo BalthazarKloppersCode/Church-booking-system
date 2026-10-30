@@ -68,6 +68,7 @@ const STYLE = `
 
 function roomState(suggestion, selectedRoomId) {
   if (!suggestion) return { state: 'unavailable' };
+  if (suggestion.closed) return { state: 'unavailable', note: 'not open yet' };
   if (selectedRoomId === suggestion.room.id) return { state: 'selected' };
   if (!suggestion.available) return { state: 'booked', note: 'booked' };
   // Too large for the group (more than 20% over the best-fitting option, for
@@ -150,7 +151,9 @@ function RoomTooltip({ hover }) {
   const placeBelow = y + 16 + 130 < window.innerHeight;
   const position = placeBelow ? { top: y + 16 } : { bottom: window.innerHeight - y + 16 };
   const equipment = room.amenities?.length ? room.amenities.join(' · ') : null;
-  const status = state === 'unavailable' ? (suggestion.fit_quality === 'oversized' ? suggestion.note : null) : TIP_STATUS[state];
+  const status = suggestion.closed
+    ? `Not open for booking yet${suggestion.note && suggestion.note !== 'Not open for booking yet' ? `: ${suggestion.note}` : ''}`
+    : state === 'unavailable' ? (suggestion.fit_quality === 'oversized' ? suggestion.note : null) : TIP_STATUS[state];
 
   return (
     <div className="bm-tip" style={{ left, ...position }} role="tooltip">

@@ -23,6 +23,8 @@ export default function AdminRooms() {
   const [form, setForm] = useState(EMPTY_ROOM);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
+  const [closeReason, setCloseReason] = useState('Awaiting fire marshal approval');
+  const [notice, setNotice] = useState('');
 
   async function load() {
     setRooms(await api.listRooms());
@@ -82,6 +84,32 @@ export default function AdminRooms() {
       }
       resetForm();
       await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // Close a room to new bookings (or open it again). Existing bookings are left alone, so after
+  // closing, say how many upcoming ones are still in the room so the office can move them.
+  async function setBookable(room, bookable) {
+    setError('');
+    setNotice('');
+    try {
+      await api.updateRoom(room.id, bookable ? { bookable: true } : { bookable: false, closed_reason: closeReason });
+      await load();
+      if (bookable) {
+        setNotice(`${room.name} is open for booking again.`);
+        return;
+      }
+      const now = Date.now();
+      const standing = (await api.listBookings({ room_id: room.id })).filter(
+        (b) => (b.status === 'approved' || b.status === 'pending') && new Date(b.end_time).getTime() > now
+      );
+      setNotice(
+        standing.length
+          ? `${room.name} is closed to new bookings. ${standing.length} upcoming booking${standing.length === 1 ? ' is' : 's are'} still in it: move or cancel ${standing.length === 1 ? 'it' : 'them'} on the Bookings page.`
+          : `${room.name} is closed to new bookings. Nothing upcoming is booked in it.`
+      );
     } catch (err) {
       setError(err.message);
     }
@@ -224,10 +252,25 @@ export default function AdminRooms() {
         </form>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="card" style={{ padding: '14px 18px' }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Reason shown to bookers when you close a room</label>
+              <input value={closeReason} maxLength={200} onChange={(e) => setCloseReason(e.target.value)} />
+              <span className="field-hint">Use “Close for booking” on a room below. Closed rooms stay on the map, marked as not open yet, and nobody (including the office) can book them until you open them again.</span>
+            </div>
+          </div>
+          {notice && (
+            <p role="status" style={{ margin: 0, padding: '9px 12px', fontSize: 14, color: 'var(--ok)', background: 'var(--ok-bg)', border: '1px solid var(--ok-bd)', borderRadius: 8 }}>{notice}</p>
+          )}
           {rooms.map((room) => (
-            <div key={room.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={room.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <div>
                 <strong>{room.name}</strong>
+                {room.bookable === false && (
+                  <span className="badge badge-cancelled" style={{ marginLeft: 8 }}>
+                    Closed{room.closed_reason ? `: ${room.closed_reason}` : ''}
+                  </span>
+                )}
                 <p style={{ fontSize: 13 }}>
                   {room.type.replace('_', ' ')} · {room.min_people ? `${room.min_people}–${room.capacity} people` : `Up to ${room.capacity} people`}
                   {room.location ? ` · ${room.location}` : ''}
@@ -236,7 +279,12 @@ export default function AdminRooms() {
                   <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{room.amenities.join(' · ')}</p>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {room.bookable === false ? (
+                  <button className="btn btn-primary" onClick={() => setBookable(room, true)}>Open for booking</button>
+                ) : (
+                  <button className="btn btn-secondary" onClick={() => setBookable(room, false)}>Close for booking</button>
+                )}
                 <button className="btn btn-secondary" onClick={() => startEdit(room)}>Edit</button>
                 <button className="btn btn-danger" onClick={() => handleDeactivate(room.id)}>Remove</button>
               </div>

@@ -39,7 +39,7 @@ from app.date_format import format_day, to_local
 from app.notifications import notify_booking_confirmed, notify_booking_decision
 from app.rate_limit import limiter
 from app.routers.bookings import _booking_out
-from app.routers.rooms import _is_room_free
+from app.routers.rooms import _is_room_free, closed_message
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -321,6 +321,10 @@ async def admin_create_booking(
         rooms.append(room)
     if payload.end_time <= payload.start_time:
         raise HTTPException(400, "End time must be after start time")
+    # A room closed to booking (say, awaiting a fire marshal's approval) is closed to the office too.
+    for room in rooms:
+        if closed_message(room):
+            raise HTTPException(409, closed_message(room))
     if len(rooms) == 1:
         if payload.headcount > rooms[0]["capacity"]:
             raise HTTPException(
@@ -430,6 +434,8 @@ async def admin_update_booking(
         room = await rooms_collection.find_one({"_id": ObjectId(update_data["room_id"])})
         if not room:
             raise HTTPException(404, "Room not found")
+        if update_data["room_id"] != booking.get("room_id") and closed_message(room):
+            raise HTTPException(409, closed_message(room))
         update_data["room_name"] = room["name"]
 
     if update_data:

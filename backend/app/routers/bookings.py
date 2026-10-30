@@ -27,7 +27,7 @@ from app.notifications import (
     notify_admin_new_request,
 )
 from app.rate_limit import limiter
-from app.routers.rooms import _is_room_free, _room_out
+from app.routers.rooms import _is_room_free, _room_out, closed_message
 
 router = APIRouter(prefix="/api/bookings", tags=["bookings"])
 
@@ -80,6 +80,9 @@ async def create_booking(
 
     if payload.end_time <= payload.start_time:
         raise HTTPException(400, "End time must be after start time")
+
+    if closed_message(room):
+        raise HTTPException(409, closed_message(room))
 
     if payload.headcount > room["capacity"]:
         raise HTTPException(

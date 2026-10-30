@@ -124,6 +124,7 @@ export default function BookPage({ publicLink = false }) {
   const [loungeChecking, setLoungeChecking] = useState(false);
   const [loungeAvailable, setLoungeAvailable] = useState(null);
   const [loungeRoom, setLoungeRoom] = useState(null);
+  const [loungeClosed, setLoungeClosed] = useState(false);
 
   const [wantsHebrews, setWantsHebrews] = useState(false);
   const [hebrewsChecking, setHebrewsChecking] = useState(false);
@@ -189,6 +190,7 @@ export default function BookPage({ publicLink = false }) {
       const lounge = results[0];
       setLoungeRoom(lounge ? lounge.room : null);
       setLoungeAvailable(lounge ? lounge.available : false);
+      setLoungeClosed(Boolean(lounge?.closed));
     } catch {
       setLoungeAvailable(false);
       setLoungeRoom(null);
@@ -668,7 +670,12 @@ export default function BookPage({ publicLink = false }) {
                   {s.room.description && (
                     <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{s.room.description}</p>
                   )}
-                  {!s.available && (
+                  {s.closed && (
+                    <span className="badge badge-cancelled">
+                      Not open for booking yet{s.note && s.note !== 'Not open for booking yet' ? `: ${s.note}` : ''}
+                    </span>
+                  )}
+                  {!s.available && !s.closed && (
                     <span className="badge badge-rejected">Already booked at this time</span>
                   )}
                   {s.available && s.fit_quality === 'oversized' && (
@@ -822,7 +829,7 @@ export default function BookPage({ publicLink = false }) {
               )}
               {wantsLounge && !loungeChecking && loungeAvailable === false && (
                 <p style={{ fontSize: 13, color: 'var(--no)' }}>
-                  The Lounge is already booked for this time slot — it won't be included with this booking.
+                  {loungeClosed ? "The Lounge isn't open for booking yet" : 'The Lounge is already booked for this time slot'} — it won't be included with this booking.
                 </p>
               )}
               {wantsLounge && !loungeChecking && loungeAvailable === true && (
