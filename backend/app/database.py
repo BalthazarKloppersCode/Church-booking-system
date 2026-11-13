@@ -14,6 +14,8 @@ users_collection = db["users"]
 # Which rooms each church-calendar event occupies, keyed by the event's UID
 # (a repeating event is one UID, so one assignment covers every date).
 event_rooms_collection = db["calendar_event_rooms"]
+# Extra Google calendars the office has added (name + secret iCal address) to show alongside bookings.
+calendar_feeds_collection = db["calendar_feeds"]
 
 
 async def ensure_indexes():
@@ -34,3 +36,4 @@ async def ensure_indexes():
     await users_collection.create_index("email", unique=True)
     await event_rooms_collection.create_index("uid", unique=True)
     await event_rooms_collection.create_index("room_ids")
+    await calendar_feeds_collection.create_index("url", unique=True)

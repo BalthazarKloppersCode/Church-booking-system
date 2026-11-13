@@ -101,7 +101,7 @@ export default function BookerCalendar({ onPick, onClose }) {
           const names = e.room_ids.map((id) => roomName[id]).filter(Boolean).join(', ');
           return {
             id: `external-${i}`,
-            title: `${e.title}${names ? ` — ${names}` : ''} (church calendar)`,
+            title: `${e.title}${names ? ` — ${names}` : ''} (${e.calendar || 'church calendar'})`,
             start,
             end,
             allDay: Boolean(e.all_day),

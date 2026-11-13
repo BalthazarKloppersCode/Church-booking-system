@@ -17,6 +17,7 @@ const AdminRooms = lazy(() => import('./pages/admin/AdminRooms'));
 const AdminManageLists = lazy(() => import('./pages/admin/AdminManageLists'));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminAccount = lazy(() => import('./pages/admin/AdminAccount'));
+const AdminCalendars = lazy(() => import('./pages/admin/AdminCalendars'));
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="rooms" element={<AdminRooms />} />
             <Route path="lists" element={<AdminManageLists />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="calendars" element={<AdminCalendars />} />
             <Route path="account" element={<AdminAccount />} />
           </Route>
         </Routes>

@@ -162,15 +162,28 @@ async def list_external_events(
     start_after: datetime, start_before: datetime, uids: Optional[set[str]] = None
 ) -> list[dict]:
     """
+    Every event on the church calendars that this app didn't create, merged and labelled with its
+    calendar: the service-account calendar (if two-way sync is set up) plus all the calendars the
+    office has added by their secret address. Without a service account, the calendar from the
+    server settings is read the same way.
+    """
+    if not _enabled():
+        return await ical_feed.list_events(start_after, start_before, uids)
+    api_events = await _list_api_events(start_after, start_before, uids)
+    added = await ical_feed.list_events(start_after, start_before, uids, include_legacy=False)
+    return sorted(api_events + added, key=lambda e: e["start_time"])
+
+
+async def _list_api_events(
+    start_after: datetime, start_before: datetime, uids: Optional[set[str]] = None
+) -> list[dict]:
+    """
     Events already on the church calendar that this app did NOT create —
     lets the booker/admin calendar views show existing church events
     (services, external bookings, etc.) without duplicating the ones this
     app already pushed there itself (those are filtered out here since
     they're already shown from our own booking records).
     """
-    if not _enabled():
-        # No service account — fall back to the read-only iCal feed, if set.
-        return await ical_feed.list_events(start_after, start_before, uids)
     time_min = start_after if start_after.tzinfo else start_after.replace(tzinfo=timezone.utc)
     time_max = start_before if start_before.tzinfo else start_before.replace(tzinfo=timezone.utc)
     params = {
@@ -200,6 +213,7 @@ async def list_external_events(
             events.append(
                 {
                     "uid": uid,
+                    "calendar": "church calendar",
                     "title": item.get("summary") or "(Untitled event)",
                     "start_time": _parse_gcal_datetime(start),
                     "end_time": _parse_gcal_datetime(end),

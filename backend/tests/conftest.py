@@ -13,7 +13,15 @@ def no_real_world(monkeypatch):
     backend/.env: no WhatsApp or email sends, no reading the church calendar.
     A test that needs one of these sets it itself (with a fake transport).
     """
+    from mongomock_motor import AsyncMongoMockClient as _Mock
+
+    from app import ical_feed
     from app.config import settings
+
+    # Code that reads the added calendars straight from the database (outside the app fixture) gets an empty one.
+    monkeypatch.setattr(ical_feed, "calendar_feeds_collection", _Mock()["church_booking_test"]["calendar_feeds"])
+    ical_feed._cache.clear()
+    ical_feed._errors.clear()
 
     for name in (
         "whatsapp_phone_number_id",
@@ -38,6 +46,7 @@ async def app_state(monkeypatch):
     from app import auth as auth_module
     from app import calendar_sync as calendar_sync_module
     from app import church_events as church_events_module
+    from app import ical_feed as ical_feed_module
     from app import database as db_module
     from app.config import settings
     from app.rate_limit import limiter
@@ -45,6 +54,7 @@ async def app_state(monkeypatch):
     from app.routers import areas as areas_router
     from app.routers import auth as booker_auth_router
     from app.routers import bookings as bookings_router
+    from app.routers import calendar_feeds as calendar_feeds_router
     from app.routers import public_requests as public_requests_router
     from app.routers import congregations as congregations_router
     from app.routers import rooms as rooms_router
@@ -58,9 +68,12 @@ async def app_state(monkeypatch):
     areas_col = mock_db["areas"]
     users_col = mock_db["users"]
     event_rooms_col = mock_db["calendar_event_rooms"]
+    feeds_col = mock_db["calendar_feeds"]
 
     modules = (
         church_events_module,
+        ical_feed_module,
+        calendar_feeds_router,
         db_module,
         rooms_router,
         bookings_router,
@@ -88,6 +101,8 @@ async def app_state(monkeypatch):
             monkeypatch.setattr(module, "users_collection", users_col)
         if hasattr(module, "event_rooms_collection"):
             monkeypatch.setattr(module, "event_rooms_collection", event_rooms_col)
+        if hasattr(module, "calendar_feeds_collection"):
+            monkeypatch.setattr(module, "calendar_feeds_collection", feeds_col)
 
     monkeypatch.setattr(settings, "admin_setup_secret", "test-setup-secret")
     monkeypatch.setattr(settings, "auto_approve_window_days", 14)
@@ -102,6 +117,7 @@ async def app_state(monkeypatch):
         "areas": areas_col,
         "users": users_col,
         "event_rooms": event_rooms_col,
+        "feeds": feeds_col,
     }
 
 

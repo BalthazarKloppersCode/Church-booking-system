@@ -139,13 +139,13 @@ export default function AdminCalendar() {
         const names = e.room_ids.map((id) => roomName[id]).filter(Boolean).join(', ');
         return {
           id: `external-${i}`,
-          title: `${e.title}${names ? ` — ${names}` : ''} (church calendar)`,
+          title: `${e.title}${names ? ` — ${names}` : ''} (${e.calendar || 'church calendar'})`,
           start: new Date(e.start_time),
           end: new Date(e.end_time),
           allDay: Boolean(e.all_day),
           status: 'external',
           booking: null,
-          external: { uid: e.uid, title: e.title, roomIds: e.room_ids, start: e.start_time, end: e.end_time, allDay: Boolean(e.all_day) },
+          external: { uid: e.uid, title: e.title, calendar: e.calendar, roomIds: e.room_ids, start: e.start_time, end: e.end_time, allDay: Boolean(e.all_day) },
         };
       });
     return [...bookingEvents, ...church];

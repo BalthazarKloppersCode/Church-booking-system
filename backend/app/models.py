@@ -544,12 +544,23 @@ class ExternalCalendarEvent(BaseModel):
     # rooms an admin has assigned it to — see app/church_events.py.
     uid: str = ""
     room_ids: List[str] = []
+    calendar: str = Field(default="", description="Name of the calendar this event comes from")
 
     @field_serializer("start_time", "end_time")
     def _serialize_as_utc(self, v: datetime) -> str:
         if v.tzinfo is None:
             v = v.replace(tzinfo=timezone.utc)
         return v.isoformat()
+
+
+class CalendarFeedCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    url: str = Field(min_length=8, max_length=2000, description="The calendar's secret address in iCal format")
+
+
+class CalendarFeedUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    enabled: Optional[bool] = None
 
 
 class EventRoomsUpdate(BaseModel):

@@ -47,6 +47,7 @@ END:VCALENDAR
 """
 
 WINDOW = (datetime(2026, 10, 1), datetime(2026, 11, 1))
+URL_KEY = "https://calendar.google.com/calendar/ical/secret-token/basic.ics"
 
 
 class _Resp:
@@ -83,7 +84,7 @@ def feed(monkeypatch):
     monkeypatch.setattr(settings, "google_calendar_ical_url", "https://calendar.google.com/calendar/ical/secret-token/basic.ics")
     monkeypatch.setattr(settings, "google_service_account_json", "")
     monkeypatch.setattr(settings, "church_timezone", "Africa/Johannesburg")
-    ical_feed._cache.update(at=0.0, url=None, calendar=None)
+    ical_feed._cache.clear()
 
 
 async def test_events_are_read_in_utc_with_repeats_expanded():
@@ -125,17 +126,19 @@ async def test_the_feed_is_cached_between_requests():
 
 async def test_a_failed_refresh_keeps_showing_the_last_good_copy(capsys):
     await ical_feed.list_events(*WINDOW)
-    ical_feed._cache["at"] = 0.0  # expire it
+    held = ical_feed._cache[URL_KEY][1]
+    ical_feed._cache.clear()  # expire it: the next read must go back to Google ...
+    ical_feed._cache[URL_KEY] = (0.0, held)  # ... but the last good copy is still held
     _Client.response = _Resp(500, b"")
     assert await ical_feed.list_events(*WINDOW)
-    assert "Google answered 500" in capsys.readouterr().out
+    assert "answered 500" in capsys.readouterr().out
 
 
 async def test_errors_never_leak_the_secret_url(capsys):
     _Client.response = OSError("could not connect to https://calendar.google.com/calendar/ical/secret-token/basic.ics")
     assert await ical_feed.list_events(*WINDOW) == []
     out = capsys.readouterr().out
-    assert "[calendar feed error] OSError" in out
+    assert "[calendar feed error] could not reach a calendar (OSError)" in out
     assert "secret-token" not in out
 
 

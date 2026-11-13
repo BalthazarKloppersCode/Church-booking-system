@@ -41,7 +41,7 @@ export default function ChurchEventSheet({ event, rooms, onClose, onSaved }) {
         {event.allDay ? `${formatDay(event.start)} · all day` : formatSlot(event.start, event.end)}
       </p>
       <p style={{ margin: '4px 0 18px', fontSize: 12, color: 'var(--ink-3)' }}>
-        From the church Google Calendar — change its time or title there.
+        From the {event.calendar ? `“${event.calendar}”` : 'church Google'} calendar — change its time or title there.
       </p>
 
       {clashes ? (

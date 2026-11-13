@@ -73,7 +73,7 @@ export default function AdminRoomGrid() {
                       }}
                     >
                       <strong>{b.all_day ? 'All day' : formatTimeRange(b.start_time, b.end_time)}</strong>{' '}
-                      {b.church ? `${b.title} (church calendar)` : b.congregation}
+                      {b.church ? `${b.title} (${b.calendar || 'church calendar'})` : b.congregation}
                       {b.status === 'pending' ? ' (awaiting the office)' : ''}
                     </div>
                   ))}

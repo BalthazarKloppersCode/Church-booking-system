@@ -22,7 +22,7 @@ def feed(monkeypatch):
     monkeypatch.setattr(settings, "google_calendar_ical_url", "https://calendar.example/secret/basic.ics")
     monkeypatch.setattr(settings, "google_service_account_json", "")
     monkeypatch.setattr(settings, "church_timezone", "Africa/Johannesburg")
-    ical_feed._cache.update(at=0.0, url=None, calendar=None)
+    ical_feed._cache.clear()
 
 
 def _at(day, start_hour, end_hour):
