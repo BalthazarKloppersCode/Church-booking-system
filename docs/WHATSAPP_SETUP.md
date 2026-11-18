@@ -170,7 +170,7 @@ Environment (then redeploy):
 | `WHATSAPP_PHONE_NUMBER_ID` | the Phone number ID from step 3 |
 | `WHATSAPP_ACCESS_TOKEN` | the permanent token from step 5 |
 | `WHATSAPP_TEMPLATE_LANGUAGE` | only if you chose something other than `en` |
-| `ADMIN_NOTIFY_WHATSAPP` | office number(s) to alert about new requests, comma-separated |
+| `ADMIN_NOTIFY_WHATSAPP` | office number(s) to alert about new requests, comma-separated. Used for any room that has no approval numbers of its own (Manage rooms → "Approval alerts") |
 | `WHATSAPP_DEFAULT_COUNTRY_CODE` | only if not South Africa (default `27`) |
 
 Phone numbers typed the local way (`082 123 4567`) are converted to

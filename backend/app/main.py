@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import ensure_indexes
 from app.notifications import _email_credentials, email_is_configured
 from app.rate_limit import limiter
-from app.routers import rooms, bookings, admin, congregations, booking_purposes, areas, users, auth, public_requests, calendar_feeds
+from app.routers import rooms, bookings, admin, congregations, booking_purposes, areas, users, auth, public_requests, calendar_feeds, room_approvers
 
 app = FastAPI(title="Church Booking System")
 
@@ -37,6 +37,7 @@ app.include_router(users.router)
 app.include_router(auth.router)
 app.include_router(public_requests.router)
 app.include_router(calendar_feeds.router)
+app.include_router(room_approvers.router)
 
 
 @app.on_event("startup")

@@ -554,6 +554,24 @@ async def notify_booking_decision(booking: dict, room: dict, approved: bool):
     )
 
 
+def admin_whatsapp_targets(room: dict) -> list[str]:
+    """
+    Who gets the "needs approval" WhatsApp for this room: the numbers set on the room, or, when it has
+    none, the office numbers in ADMIN_NOTIFY_WHATSAPP (comma-separated). Each person once.
+    """
+    chosen = [n for n in (room.get("approval_whatsapp") or []) if str(n).strip()]
+    if not chosen:
+        chosen = [n for n in (settings.admin_notify_whatsapp or "").split(",") if n.strip()]
+    targets: list[str] = []
+    seen = set()
+    for number in chosen:
+        key = whatsapp.normalize_phone(number) or number.strip()
+        if key not in seen:
+            seen.add(key)
+            targets.append(number.strip())
+    return targets
+
+
 async def notify_admin_new_request(booking: dict, room: dict):
     start, _ = _local_times(booking)
     subject = f"New booking needs approval: {room['name']}"
@@ -588,24 +606,21 @@ async def notify_admin_new_request(booking: dict, room: dict):
     tasks = []
     if settings.admin_notify_email:
         tasks.append(send_email(settings.admin_notify_email, subject, body, html_body))
-    if settings.admin_notify_whatsapp:
-        # ADMIN_NOTIFY_WHATSAPP may list several numbers, comma-separated.
-        for number in settings.admin_notify_whatsapp.split(","):
-            if number.strip():
-                tasks.append(
-                    send_whatsapp(
-                        number.strip(),
-                        "admin_new_request",
-                        [
-                            booking["requester_name"],
-                            booking["congregation"],
-                            room["name"],
-                            format_day_short(start),
-                            format_time(start),
-                            booking["headcount"],
-                            booking["purpose"],
-                        ],
-                    )
-                )
+    for number in admin_whatsapp_targets(room):
+        tasks.append(
+            send_whatsapp(
+                number,
+                "admin_new_request",
+                [
+                    booking["requester_name"],
+                    booking["congregation"],
+                    room["name"],
+                    format_day_short(start),
+                    format_time(start),
+                    booking["headcount"],
+                    booking["purpose"],
+                ],
+            )
+        )
     if tasks:
         await asyncio.gather(*tasks)

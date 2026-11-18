@@ -56,6 +56,7 @@ async def app_state(monkeypatch):
     from app.routers import bookings as bookings_router
     from app.routers import calendar_feeds as calendar_feeds_router
     from app.routers import public_requests as public_requests_router
+    from app.routers import room_approvers as room_approvers_router
     from app.routers import congregations as congregations_router
     from app.routers import rooms as rooms_router
     from app.routers import users as users_router
@@ -74,6 +75,7 @@ async def app_state(monkeypatch):
         church_events_module,
         ical_feed_module,
         calendar_feeds_router,
+        room_approvers_router,
         db_module,
         rooms_router,
         bookings_router,

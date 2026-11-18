@@ -130,6 +130,9 @@ export const api = {
   adminUpdateCalendarFeed: (id, payload) =>
     request(`/api/admin/calendar-feeds/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminDeleteCalendarFeed: (id) => request(`/api/admin/calendar-feeds/${id}`, { method: 'DELETE' }),
+  adminRoomApprovers: () => request('/api/admin/room-approvers'),
+  adminSetRoomApprovers: (roomId, numbers) =>
+    request(`/api/admin/room-approvers/${roomId}`, { method: 'PUT', body: JSON.stringify({ numbers }) }),
   adminListAdmins: () => request('/api/admin/admins'),
   adminSetAdminPassword: (id, new_password) =>
     request(`/api/admin/admins/${id}/password`, { method: 'POST', body: JSON.stringify({ new_password }) }),

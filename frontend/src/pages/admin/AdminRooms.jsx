@@ -25,9 +25,11 @@ export default function AdminRooms() {
   const [error, setError] = useState('');
   const [closeReason, setCloseReason] = useState('Awaiting fire marshal approval');
   const [notice, setNotice] = useState('');
+  const [approvers, setApprovers] = useState({}); // room id -> WhatsApp numbers that approve it
 
   async function load() {
     setRooms(await api.listRooms());
+    api.adminRoomApprovers().then(setApprovers).catch(() => {});
   }
 
   useEffect(() => {
@@ -278,6 +280,18 @@ export default function AdminRooms() {
                 {room.amenities?.length > 0 && (
                   <p style={{ fontSize: 13, color: 'var(--ink-2)' }}>{room.amenities.join(' · ')}</p>
                 )}
+                <RoomApprovers
+                  room={room}
+                  numbers={approvers[room.id] || []}
+                  onSaved={(numbers) => {
+                    setApprovers((a) => ({ ...a, [room.id]: numbers }));
+                    setNotice(
+                      numbers.length
+                        ? `Requests for ${room.name} will now be sent to ${numbers.join(', ')} on WhatsApp.`
+                        : `${room.name} goes back to the general approval number.`
+                    );
+                  }}
+                />
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {room.bookable === false ? (
@@ -292,6 +306,68 @@ export default function AdminRooms() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Who is alerted on WhatsApp when a booking for this room needs approval. Empty means the office's
+// general number (ADMIN_NOTIFY_WHATSAPP). They are alerts only: approving still happens on the Bookings page.
+function RoomApprovers({ room, numbers, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  function begin() {
+    setText(numbers.join('\n'));
+    setError('');
+    setOpen(true);
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const saved = await api.adminSetRoomApprovers(room.id, text.split(/[,;\n]+/).map((n) => n.trim()).filter(Boolean));
+      setOpen(false);
+      onSaved(saved.numbers);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 6, fontSize: 13 }}>
+      <span style={{ color: 'var(--ink-2)' }}>
+        Approval alerts: {numbers.length ? numbers.join(', ') : 'the general office number'}
+      </span>{' '}
+      {!open && (
+        <button type="button" onClick={begin} style={{ background: 'none', border: 0, padding: 0, color: 'var(--teal)', cursor: 'pointer', fontSize: 13 }}>
+          {numbers.length ? 'Change' : 'Set numbers'}
+        </button>
+      )}
+      {open && (
+        <form onSubmit={save} style={{ marginTop: 6 }}>
+          {error && <p role="alert" style={{ color: 'var(--no)', margin: '0 0 6px' }}>{error}</p>}
+          <textarea
+            rows={3}
+            aria-label={`WhatsApp numbers that approve ${room.name}`}
+            placeholder={'+27 82 123 4567\n+27 83 765 4321'}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <span className="field-hint">
+            One number per line, up to 10. Leave it empty to use the general office number. These people are alerted on WhatsApp; they approve or decline on the Bookings page.
+          </span>
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
