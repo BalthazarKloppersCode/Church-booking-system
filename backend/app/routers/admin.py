@@ -2,9 +2,10 @@ import asyncio
 import calendar
 import re
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -54,9 +55,48 @@ def _add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=day)
 
 
+def _weekday_occurrences(
+    start: datetime, end: datetime, recurrence: RecurrenceRule
+) -> List[Tuple[datetime, datetime]]:
+    """
+    A weekly (or every-2-weeks) repeat on chosen days, e.g. Monday, Tuesday and Friday. Days are the
+    church's local days and the local clock time is kept, so a 18:30 meeting stays at 18:30 and an
+    early-morning booking doesn't slip onto the wrong weekday. The first booking is the first chosen
+    day on or after the start date (the start day itself only counts if it is ticked).
+    """
+    tz = ZoneInfo(settings.church_timezone)
+    start_local = start.replace(tzinfo=timezone.utc).astimezone(tz)
+    duration = end - start
+    step = 1 if recurrence.frequency == "weekly" else 2
+    last_day = recurrence.until.date()
+    first_monday = start_local.date() - timedelta(days=start_local.weekday())
+
+    occurrences: List[Tuple[datetime, datetime]] = []
+    week = 0
+    while True:
+        monday = first_monday + timedelta(weeks=week * step)
+        if monday > last_day:
+            break
+        for weekday in recurrence.weekdays:
+            day = monday + timedelta(days=weekday)
+            if day < start_local.date() or day > last_day:
+                continue
+            at = datetime.combine(day, start_local.timetz()).astimezone(timezone.utc).replace(tzinfo=None)
+            occurrences.append((at, at + duration))
+            if len(occurrences) > MAX_RECURRING_OCCURRENCES:
+                raise HTTPException(
+                    400,
+                    f"That recurrence produces more than {MAX_RECURRING_OCCURRENCES} bookings — shorten the range.",
+                )
+        week += 1
+    return occurrences
+
+
 def _generate_occurrences(
     start: datetime, end: datetime, recurrence: RecurrenceRule
 ) -> List[Tuple[datetime, datetime]]:
+    if recurrence.weekdays:
+        return _weekday_occurrences(start, end, recurrence)
     duration = end - start
     occurrences = [(start, end)]
     month_offset = 0

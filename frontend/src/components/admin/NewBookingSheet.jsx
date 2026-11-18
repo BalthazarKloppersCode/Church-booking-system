@@ -4,7 +4,7 @@ import DatePicker from '../fields/DatePicker';
 import DateTimeField from '../fields/DateTimeField';
 import Select from '../fields/Select';
 import SideSheet from './SideSheet';
-import { countOccurrences, defaultUntil } from '../../lib/recurrence';
+import { WEEKDAYS, countOccurrences, defaultUntil, describeWeekdays, weekdayOf } from '../../lib/recurrence';
 
 const REPEAT_OPTIONS = [
   { value: '', label: "Doesn't repeat" },
@@ -54,6 +54,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
     start: toDatetimeLocalValue(initialSlot.start),
     end: toDatetimeLocalValue(initialSlot.end),
     repeat: '',
+    weekdays: [],
     until: toDateValue(initialSlot.start),
   });
   const [submitting, setSubmitting] = useState(false);
@@ -77,11 +78,23 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
   function chooseRepeat(repeat) {
     setForm((f) => {
       const firstDay = f.start.slice(0, 10);
-      return { ...f, repeat, until: repeat && f.until <= firstDay ? defaultUntil(firstDay) : f.until };
+      // A weekly repeat starts on the first booking's own weekday; tick others to add them.
+      const weekdays = repeat === 'weekly' || repeat === 'biweekly' ? (f.weekdays.length ? f.weekdays : [weekdayOf(firstDay)]) : f.weekdays;
+      return { ...f, repeat, weekdays, until: repeat && f.until <= firstDay ? defaultUntil(firstDay) : f.until };
     });
   }
 
-  const repeatCount = form.repeat ? countOccurrences(form.start.slice(0, 10), form.until, form.repeat) : 1;
+  function toggleWeekday(day) {
+    setForm((f) => ({
+      ...f,
+      weekdays: f.weekdays.includes(day) ? f.weekdays.filter((d) => d !== day) : [...f.weekdays, day],
+    }));
+  }
+
+  const onWeekdays = form.repeat === 'weekly' || form.repeat === 'biweekly';
+  const repeatCount = form.repeat
+    ? countOccurrences(form.start.slice(0, 10), form.until, form.repeat, onWeekdays ? form.weekdays : undefined)
+    : 1;
   const chosenRooms = rooms.filter((r) => form.room_ids.includes(r.id));
   const totalCapacity = chosenRooms.reduce((sum, r) => sum + r.capacity, 0);
 
@@ -90,6 +103,10 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
     setError('');
     if (!form.room_ids.length) {
       setError('Choose at least one room.');
+      return;
+    }
+    if (onWeekdays && form.weekdays.length === 0) {
+      setError('Tick at least one day of the week to repeat on.');
       return;
     }
     if (form.repeat && repeatCount < 2) {
@@ -120,6 +137,7 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
           // UTC+2) shifts "until" back to the previous day and silently
           // drops the last valid occurrence.
           until: `${form.until}T00:00:00.000Z`,
+          ...(onWeekdays ? { weekdays: [...form.weekdays].sort((a, b) => a - b) } : {}),
         };
       }
       const result = await api.adminCreateBooking(payload);
@@ -184,6 +202,29 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
             ))}
           </Select>
         </div>
+        {onWeekdays && (
+          <div className="field">
+            <label id="repeat-days-label">Repeat on</label>
+            <div role="group" aria-labelledby="repeat-days-label" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {WEEKDAYS.map((d) => {
+                const on = form.weekdays.includes(d.value);
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={d.long}
+                    className={on ? 'btn btn-primary' : 'btn btn-secondary'}
+                    style={{ height: 36, minWidth: 48, padding: '0 10px' }}
+                    onClick={() => toggleWeekday(d.value)}
+                  >
+                    {d.short}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {form.repeat && (
           <div className="field">
             <label>Until</label>
@@ -197,7 +238,9 @@ export default function NewBookingSheet({ slot, defaultRoomId, onClose, onCreate
             <p className="field-hint" style={{ margin: '6px 0 0', color: repeatCount < 2 ? 'var(--no)' : undefined }}>
               {repeatCount < 2
                 ? 'Pick a date after the first booking.'
-                : `Creates ${repeatCount} bookings, ${form.repeat === 'monthly' ? 'one a month' : form.repeat === 'biweekly' ? 'one every 2 weeks' : 'one a week'}.`}
+                : onWeekdays && form.weekdays.length
+                  ? `Creates ${repeatCount} bookings: every ${form.repeat === 'biweekly' ? 'other week on ' : ''}${describeWeekdays(form.weekdays)}.`
+                  : `Creates ${repeatCount} bookings, ${form.repeat === 'monthly' ? 'one a month' : form.repeat === 'biweekly' ? 'one every 2 weeks' : 'one a week'}.`}
             </p>
           </div>
         )}

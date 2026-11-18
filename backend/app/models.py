@@ -370,11 +370,29 @@ class RecurrenceFrequency(str, Enum):
 class RecurrenceRule(BaseModel):
     frequency: RecurrenceFrequency
     until: datetime
+    weekdays: Optional[List[int]] = Field(
+        default=None,
+        description=(
+            "For weekly / every-2-weeks repeats: which days of the week, Monday=0 to Sunday=6, in the "
+            "church's local time. Omit to repeat on the same day as the first booking."
+        ),
+    )
 
     @field_validator("until")
     @classmethod
     def _normalize_until(cls, v: datetime) -> datetime:
         return _to_naive_utc(v)
+
+    @model_validator(mode="after")
+    def _check_weekdays(self):
+        if self.weekdays is None:
+            return self
+        if self.frequency == RecurrenceFrequency.monthly:
+            raise ValueError("Weekdays can only be chosen for weekly or every-2-weeks repeats")
+        if not self.weekdays or any(not isinstance(d, int) or d < 0 or d > 6 for d in self.weekdays):
+            raise ValueError("Choose at least one day of the week")
+        self.weekdays = sorted(set(self.weekdays))
+        return self
 
 
 MAX_ROOMS_PER_BOOKING = 20

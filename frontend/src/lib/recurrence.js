@@ -26,11 +26,51 @@ export function defaultUntil(startValue) {
   return toDateValue(addMonths(parseDate(startValue), 3));
 }
 
+// Monday-first, matching the server (Monday = 0 ... Sunday = 6).
+export const WEEKDAYS = [
+  { value: 0, short: 'Mon', long: 'Monday' },
+  { value: 1, short: 'Tue', long: 'Tuesday' },
+  { value: 2, short: 'Wed', long: 'Wednesday' },
+  { value: 3, short: 'Thu', long: 'Thursday' },
+  { value: 4, short: 'Fri', long: 'Friday' },
+  { value: 5, short: 'Sat', long: 'Saturday' },
+  { value: 6, short: 'Sun', long: 'Sunday' },
+];
+
+// Which weekday a 'YYYY-MM-DD' date falls on, Monday = 0.
+export function weekdayOf(dateValue) {
+  return (parseDate(dateValue).getDay() + 6) % 7;
+}
+
+// "Monday", "Monday and Friday", "Monday, Tuesday and Friday"
+export function describeWeekdays(days) {
+  const names = [...days].sort((a, b) => a - b).map((d) => WEEKDAYS[d].long);
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+// A weekly / every-2-weeks repeat on chosen days: the first chosen day on or after the start, then
+// every chosen day of every 1st (or 2nd) week, up to and including "until". Mirrors the server.
+function countOnWeekdays(start, until, frequency, weekdays) {
+  const step = frequency === 'weekly' ? 1 : 2;
+  const monday = new Date(start.getFullYear(), start.getMonth(), start.getDate() - weekdayOf(toDateValue(start)));
+  let count = 0;
+  for (let week = 0; count <= 104; week++) {
+    const weekStart = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + week * step * 7);
+    if (weekStart > until) break;
+    for (const d of weekdays) {
+      const day = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + d);
+      if (day >= start && day <= until) count++;
+    }
+  }
+  return count;
+}
+
 // How many bookings a repeat creates, counting the first — mirrors the server's rule
 // (a date is included while it is on or before "until").
-export function countOccurrences(startValue, untilValue, frequency) {
+export function countOccurrences(startValue, untilValue, frequency, weekdays) {
   const start = parseDate(startValue);
   const until = parseDate(untilValue);
+  if (weekdays?.length && frequency !== 'monthly') return countOnWeekdays(start, until, frequency, weekdays);
   let count = 1;
   for (let i = 1; count <= 104; i++) {
     const next =
