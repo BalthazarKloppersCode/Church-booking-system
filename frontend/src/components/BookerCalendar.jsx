@@ -10,6 +10,8 @@ import '../lib/calendarTheme.css';
 import { api } from '../lib/api';
 import { CALENDAR_FORMATS } from '../lib/calendarFormats';
 import { groupCalendarEntries } from '../lib/bookingGroups';
+import { buildRoomColors, colorForRoomNames, eventStyle } from '../lib/roomColors';
+import CalendarKey from './CalendarKey';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -18,18 +20,6 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales: { 'en-US': enUS },
 });
-
-const STATUS_COLOR = {
-  approved: 'var(--ok)',
-  pending: 'var(--wait)',
-  external: 'var(--ink-3)',
-};
-
-const LEGEND = [
-  { status: 'approved', label: 'Confirmed' },
-  { status: 'pending', label: 'Awaiting the office' },
-  { status: 'external', label: 'Already on the church calendar' },
-];
 
 // Shown by default; "Show full day" expands to the full 00:00–24:00 range.
 const COLLAPSED_MIN = new Date(1970, 0, 1, 6, 0, 0);
@@ -63,6 +53,7 @@ function fmtTime(d) {
 // privacy-safe endpoint) rather than reusing the full booking record.
 export default function BookerCalendar({ onPick, onClose }) {
   const [events, setEvents] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fullDay, setFullDay] = useState(false);
   // Held here so Back / Next / Today actually move the visible week.
@@ -79,8 +70,9 @@ export default function BookerCalendar({ onPick, onClose }) {
       api.listExternalCalendarEvents({ start_after, start_before }).catch(() => []),
       api.listRooms().catch(() => []),
     ])
-      .then(([entries, externalEvents, rooms]) => {
-        const roomName = Object.fromEntries(rooms.map((r) => [r.id, r.name]));
+      .then(([entries, externalEvents, roomList]) => {
+        setRooms(roomList);
+        const roomName = Object.fromEntries(roomList.map((r) => [r.id, r.name]));
         // An event in several rooms is one card, not one strip per room.
         const bookingEvents = groupCalendarEntries(entries).map((e, i) => {
           const start = new Date(e.start_time);
@@ -92,6 +84,7 @@ export default function BookerCalendar({ onPick, onClose }) {
             end,
             status: e.status,
             rooms: e.rooms,
+            roomNames: e.rooms,
             timeLabel: `${fmtTime(start)}–${fmtTime(end)}`,
           };
         });
@@ -106,6 +99,7 @@ export default function BookerCalendar({ onPick, onClose }) {
             end,
             allDay: Boolean(e.all_day),
             status: 'external',
+            roomNames: e.room_ids.map((id) => roomName[id]).filter(Boolean),
           };
         });
         setEvents([...bookingEvents, ...churchEvents]);
@@ -113,16 +107,11 @@ export default function BookerCalendar({ onPick, onClose }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const roomColors = useMemo(() => buildRoomColors(rooms), [rooms]);
+
   const eventStyleGetter = useMemo(
-    () => (event) => ({
-      style: {
-        backgroundColor: STATUS_COLOR[event.status] || '#5B6259',
-        borderRadius: 6,
-        border: 'none',
-        fontSize: 12,
-      },
-    }),
-    []
+    () => (event) => ({ style: { ...eventStyle(colorForRoomNames(event.roomNames, roomColors), event.status), fontSize: 12 } }),
+    [roomColors]
   );
 
   return (
@@ -180,14 +169,7 @@ export default function BookerCalendar({ onPick, onClose }) {
             onSelectEvent={() => {}}
           />
         )}
-        <div className="cal-legend">
-          {LEGEND.map((l) => (
-            <span key={l.status}>
-              <span className="dot" style={{ background: STATUS_COLOR[l.status] }} />
-              {l.label}
-            </span>
-          ))}
-        </div>
+        <CalendarKey rooms={rooms} colors={roomColors} showNoRoom />
       </div>
     </div>
   );

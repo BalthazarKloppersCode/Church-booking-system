@@ -17,6 +17,8 @@ import ChurchEventSheet from '../../components/admin/ChurchEventSheet';
 import Notice from '../../components/admin/Notice';
 import { describeCreated } from '../../lib/createdSummary';
 import { bookingBadge } from '../../lib/bookingStatus';
+import { buildRoomColors, colorForRooms, eventStyle } from '../../lib/roomColors';
+import CalendarKey from '../../components/CalendarKey';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -25,18 +27,6 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales: { 'en-US': enUS },
 });
-
-const STATUS_COLOR = {
-  approved: 'var(--ok)',
-  pending: 'var(--wait)',
-  external: 'var(--ink-3)',
-};
-
-const LEGEND = [
-  { status: 'approved', label: 'Confirmed' },
-  { status: 'pending', label: 'Awaiting the office' },
-  { status: 'external', label: 'Already on the church calendar' },
-];
 
 // Shown by default; "Show full day" expands to the full 00:00–24:00 range.
 const COLLAPSED_MIN = new Date(1970, 0, 1, 6, 0, 0);
@@ -122,6 +112,7 @@ export default function AdminCalendar() {
           start: new Date(b.start_time),
           end: new Date(b.end_time),
           status: b.status,
+          roomIds: b.rooms.map((r) => r.id),
           booking: b,
         }))
       );
@@ -144,6 +135,7 @@ export default function AdminCalendar() {
           end: new Date(e.end_time),
           allDay: Boolean(e.all_day),
           status: 'external',
+          roomIds: e.room_ids,
           booking: null,
           external: { uid: e.uid, title: e.title, calendar: e.calendar, roomIds: e.room_ids, start: e.start_time, end: e.end_time, allDay: Boolean(e.all_day) },
         };
@@ -151,15 +143,11 @@ export default function AdminCalendar() {
     return [...bookingEvents, ...church];
   }, [bookingEvents, externalEvents, rooms, roomFilter]);
 
+  const roomColors = useMemo(() => buildRoomColors(rooms), [rooms]);
+
   const eventStyleGetter = useMemo(
-    () => (event) => ({
-      style: {
-        backgroundColor: STATUS_COLOR[event.status] || 'var(--ink-3)',
-        borderRadius: 6,
-        border: 'none',
-      },
-    }),
-    []
+    () => (event) => ({ style: eventStyle(colorForRooms(event.roomIds, roomColors), event.status) }),
+    [roomColors]
   );
 
   return (
@@ -181,7 +169,7 @@ export default function AdminCalendar() {
       </div>
       <p style={{ fontSize: 13, color: 'var(--ink-2)', marginBottom: 10 }}>
         Click and drag on an empty slot to add a booking directly — admin-created bookings are
-        confirmed instantly and can repeat weekly, every 2 weeks, or monthly. Click a grey church
+        confirmed instantly and can repeat weekly, every 2 weeks, or monthly. Click a church
         calendar event to choose which rooms it uses — once, for every date it repeats.
       </p>
       {notice && <Notice onDismiss={() => setNotice('')}>{notice}</Notice>}
@@ -215,14 +203,7 @@ export default function AdminCalendar() {
           }}
         />
       </div>
-      <div className="cal-legend">
-        {LEGEND.map((l) => (
-          <span key={l.status}>
-            <span className="dot" style={{ background: STATUS_COLOR[l.status] }} />
-            {l.label}
-          </span>
-        ))}
-      </div>
+      <CalendarKey rooms={rooms} colors={roomColors} showNoRoom />
 
       {newBookingSlot && (
         <NewBookingSheet
