@@ -591,9 +591,9 @@ class EventRoomsUpdate(BaseModel):
 # ---------- Admin ----------
 
 class AdminCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=120)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=72)
     setup_secret: Optional[str] = Field(
         default=None,
         description="Required only to create the first admin account; ignored once an admin already exists",

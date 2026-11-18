@@ -38,6 +38,14 @@ export default function AdminAccount() {
       <div style={{ height: 16 }} />
       <ChangeOwnPassword onChanged={() => setNotice('Your password has been changed.')} />
 
+      <h2 style={{ fontSize: 18, margin: '32px 0 6px' }}>Add another admin</h2>
+      <AddAdmin
+        onAdded={(made) => {
+          setNotice(`${made.name} can now sign in at the admin login with ${made.email}. Give them the password you set.`);
+          api.adminListAdmins().then(setAdmins).catch(() => {});
+        }}
+      />
+
       <h2 style={{ fontSize: 18, margin: '32px 0 6px' }}>Other admins</h2>
       <p style={{ margin: '0 0 14px', fontSize: 14, color: 'var(--ink-2)' }}>
         If a colleague has forgotten their password, set a new one for them here and pass it on. They're signed out
@@ -55,6 +63,54 @@ export default function AdminAccount() {
           ))}
       </div>
     </div>
+  );
+}
+
+// A colleague with their own login and the same access as you. They can change the password themselves afterwards.
+function AddAdmin({ onAdded }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (form.password.length < 8) return setError('Choose a password of at least 8 characters.');
+    setBusy(true);
+    try {
+      const made = await api.adminRegister({ name: form.name.trim(), email: form.email.trim(), password: form.password });
+      setForm({ name: '', email: '', password: '' });
+      onAdded(made);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="card" onSubmit={submit}>
+      <p style={{ margin: '0 0 12px', fontSize: 13 }}>
+        They get the same access as you. Nothing is emailed to them, so pass the email and password on yourself.
+      </p>
+      {error && <p role="alert" style={{ color: 'var(--no)', fontSize: 13, margin: '0 0 10px' }}>{error}</p>}
+      <div className="admin-scope">
+        <div className="field">
+          <label>Name</label>
+          <input required maxLength={120} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>Login email</label>
+          <input type="email" required autoComplete="off" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </div>
+        <div className="field">
+          <label>Starting password</label>
+          <input type="password" required minLength={8} maxLength={72} autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <span className="field-hint">At least 8 characters. They can change it under My account.</span>
+        </div>
+      </div>
+      <button className="btn btn-primary" disabled={busy}>{busy ? 'Adding…' : 'Add admin'}</button>
+    </form>
   );
 }
 

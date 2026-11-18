@@ -130,7 +130,7 @@ async def register_admin(request: Request, payload: AdminCreate, requester=Depen
     Once at least one admin exists, only an already-logged-in admin may
     create further admin accounts.
     """
-    existing = await admins_collection.find_one({"email": payload.email})
+    existing = await admins_collection.find_one({"email": {"$regex": f"^{re.escape(payload.email)}$", "$options": "i"}})
     if existing:
         raise HTTPException(400, "An admin with this email already exists")
 
@@ -148,12 +148,12 @@ async def register_admin(request: Request, payload: AdminCreate, requester=Depen
             raise HTTPException(403, "Invalid setup secret")
 
     doc = {
-        "name": payload.name,
+        "name": payload.name.strip(),
         "email": payload.email,
         "password_hash": hash_password(payload.password),
     }
     result = await admins_collection.insert_one(doc)
-    return AdminOut(id=str(result.inserted_id), name=payload.name, email=payload.email)
+    return AdminOut(id=str(result.inserted_id), name=doc["name"], email=payload.email)
 
 
 @router.post("/login", response_model=Token)
