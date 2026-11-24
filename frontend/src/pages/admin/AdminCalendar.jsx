@@ -19,6 +19,7 @@ import { describeCreated } from '../../lib/createdSummary';
 import { bookingBadge } from '../../lib/bookingStatus';
 import { buildRoomColors, colorForRooms, eventStyle } from '../../lib/roomColors';
 import CalendarKey from '../../components/CalendarKey';
+import { eventName, eventTitle } from '../../lib/eventLabel';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -34,16 +35,18 @@ const COLLAPSED_MAX = new Date(1970, 0, 1, 21, 59, 59);
 const FULL_MIN = new Date(1970, 0, 1, 0, 0, 0);
 const FULL_MAX = new Date(1970, 0, 1, 23, 59, 59);
 
-// A booking in several rooms is one card: who it's for, then each room on its own line.
+// A booking card in the week and day views: the event, then the room (each room, if there are
+// several), then the congregation. The month view has room for one line only, so it uses the title.
 function EventCard({ event }) {
   const b = event.booking;
-  if (!b || b.rooms.length < 2) return <>{event.title}</>;
+  if (!b || event.view === 'month') return <>{event.title}</>;
   return (
     <div>
-      <strong>{b.congregation} ({b.headcount})</strong>
+      <strong>{eventName(b)}</strong>
       {b.rooms.map((r) => (
         <div key={r.id} style={{ fontSize: 11, lineHeight: 1.3 }}>{r.name}</div>
       ))}
+      <div style={{ fontSize: 11, lineHeight: 1.3 }}>{b.congregation} ({b.headcount})</div>
     </div>
   );
 }
@@ -108,7 +111,7 @@ export default function AdminCalendar() {
         // An event in several rooms is one card, not one strip per room.
         groupBookings(filtered).map((b) => ({
           id: b.id,
-          title: `${b.room_name} — ${b.congregation} (${b.headcount})`,
+          title: eventTitle(b),
           start: new Date(b.start_time),
           end: new Date(b.end_time),
           status: b.status,
@@ -140,8 +143,8 @@ export default function AdminCalendar() {
           external: { uid: e.uid, title: e.title, calendar: e.calendar, roomIds: e.room_ids, start: e.start_time, end: e.end_time, allDay: Boolean(e.all_day) },
         };
       });
-    return [...bookingEvents, ...church];
-  }, [bookingEvents, externalEvents, rooms, roomFilter]);
+    return [...bookingEvents, ...church].map((e) => ({ ...e, view }));
+  }, [bookingEvents, externalEvents, rooms, roomFilter, view]);
 
   const roomColors = useMemo(() => buildRoomColors(rooms), [rooms]);
 
